@@ -123,7 +123,7 @@ func inkMap(_ p: CGPoint) -> CGPoint {
 }
 
 enum FeatureChecks {
-    /// Runs inside `swift run Wave --selftest`. Returns true when everything passes.
+    /// Runs inside `swift run Wave --selftest`. Returns true when everything passes; SelfTest prints the summary.
     static func run() -> Bool {
         var failed = 0
         func check(_ name: String, _ ok: Bool) {
@@ -162,8 +162,6 @@ enum FeatureChecks {
         check("ink map clamps", inkMap(CGPoint(x: 0, y: 1)) == CGPoint(x: 0, y: 1))
         check("face threshold floor", FacePrint.threshold(intraMax: 0) == FacePrint.floor)
         check("face threshold scales", FacePrint.threshold(intraMax: 10) == 15)
-
-        print(failed == 0 ? "ALL PASS" : "\(failed) FAILED")
         return failed == 0
     }
 }
