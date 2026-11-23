@@ -21,7 +21,7 @@ struct WaveApp: App {
                 FeaturesView().tabItem { Label("Features", systemImage: "switch.2") }
             }
             .frame(minWidth: 960, minHeight: 640)
-            .onAppear { HandTracker.shared.start(); ShortcutEngine.shared.start() }
+            .onAppear { HandTracker.shared.start(); ShortcutEngine.shared.start(); FeatureHub.shared.start() }
         }
         MenuBarExtra("Wave", systemImage: "hand.wave") { MenuContent() }
     }
