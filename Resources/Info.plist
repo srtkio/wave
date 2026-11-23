@@ -6,6 +6,8 @@
 	<string>com.srtkio.wave</string>
 	<key>CFBundleName</key>
 	<string>Wave</string>
+	<key>CFBundleIconFile</key>
+	<string>AppIcon</string>
 	<key>CFBundleExecutable</key>
 	<string>Wave</string>
 	<key>CFBundlePackageType</key>
