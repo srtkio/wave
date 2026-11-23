@@ -2,7 +2,11 @@
 
 Wave turns your webcam into a hand-gesture remote for your Mac: copy and paste with a fist, run Apple Shortcuts with your fingers, and play with 3D objects in the air.
 
+![Learn tab](docs/screenshots/1-learn.png)
+
 ## Tabs
+
+Switch tabs with the floating bar at the bottom, or with ⌘1 to ⌘4.
 
 - **Learn**: a gallery of gestures. Make one and its card lights up, so you can try them out.
 - **Playground**: 3D objects over the camera feed. Pinch to grab and throw a cube, make a fist to blast everything away.
@@ -38,6 +42,12 @@ Run the self-test with:
 swift run Wave --selftest
 ```
 
+Render every tab to PNGs without a camera (used for `docs/screenshots/`):
+
+```sh
+swift run Wave --snapshot docs/screenshots
+```
+
 ## Permissions
 
 - **Camera**: asked on first launch. Required for hand tracking.
@@ -56,5 +66,7 @@ Sources/Wave/
 ├── Core/       hand tracking, gesture rules, output (keys, media, shortcuts)
 ├── Views/      Learn, Playground, Shortcuts, Features tabs
 └── Features/   optional features behind the Features toggles
-Resources/
+Resources/      Info.plist
+scripts/        make-icon.swift (app icon, run by build.sh)
+docs/screenshots/
 ```
