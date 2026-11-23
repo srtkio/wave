@@ -29,7 +29,7 @@ enum PlaygroundMath {
         return speed > maxSpeed ? v * (maxSpeed / speed) : v
     }
 
-    /// Not wired into `--selftest` because that lives in Core; call it from a debugger or a temporary hook.
+    /// Run by `--selftest`.
     static func selfCheck() -> Bool {
         func near(_ a: SIMD3<Float>, _ b: SIMD3<Float>) -> Bool { simd_length(a - b) < 1e-3 }
         let size = CGSize(width: 1600, height: 900)
@@ -462,9 +462,11 @@ struct PlaygroundSceneView: NSViewRepresentable {
     func makeNSView(context: Context) -> SCNView {
         let v = SCNView(frame: .zero, options: nil)
         v.scene = world.scene
+        // All three, with the scene's clear background, so the camera shows through the Metal layer.
         v.backgroundColor = .clear
         v.wantsLayer = true
         v.layer?.isOpaque = false
+        v.layer?.backgroundColor = .clear
         v.antialiasingMode = .multisampling4X
         v.preferredFramesPerSecond = 60
         v.rendersContinuously = true

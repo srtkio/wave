@@ -12,6 +12,8 @@ final class HandTracker: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate 
     var gesture: Gesture = .none
     /// Extended finger count of the first hand.
     var fingers = 0
+    /// At least one hand in the latest frame. Changes far less often than `frame`, so cheap to observe.
+    var handVisible = false
     /// nil until `start()` has asked; true once the session is configured.
     var authorized: Bool?
     var detectFaces = false
@@ -108,6 +110,7 @@ final class HandTracker: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate 
             // Only write on change so views reading these don't re-render every frame.
             if self.gesture != gesture { self.gesture = gesture }
             if self.fingers != fingers { self.fingers = fingers }
+            if self.handVisible == hands.isEmpty { self.handVisible = !hands.isEmpty }
             for l in self.anyListeners.values { l(frame, gesture) }
             if self.gesturesAllowed { for l in self.listeners.values { l(frame, gesture) } }
         }

@@ -21,7 +21,7 @@ final class ShortcutEngine {
     private(set) var fired = false    // macro already ran: cooldown until the count changes
     private(set) var historyOpen = false
     private(set) var selected = 0
-    private(set) var items: [String] = [] // memory only, never persisted
+    var items: [String] = [] // memory only, never persisted; settable so --snapshot can show sample items
 
     @ObservationIgnored var perform: (Act) -> Void = ShortcutEngine.realAct
     @ObservationIgnored private var listener: UUID?
@@ -126,7 +126,7 @@ final class ShortcutEngine {
         }
     }
 
-    /// Call `ShortcutEngine.selfCheck()` from any debug entry point (it is not wired into --selftest). Traps via assert in debug builds.
+    /// Run by `--selftest`. Traps via assert in debug builds.
     @discardableResult static func selfCheck() -> Bool {
         let d = UserDefaults.standard
         let saved = (1...5).map { d.string(forKey: macroKey($0)) }

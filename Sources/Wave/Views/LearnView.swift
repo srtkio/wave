@@ -6,73 +6,65 @@ private struct Move: Identifiable {
     let count: Int
 }
 
+private func named(_ g: Gesture, _ emoji: String, _ how: String) -> Move {
+    Move(id: g.rawValue, emoji: emoji, name: g.title, how: how, gesture: g, count: 0)
+}
+
+// 1, 2 and 5 fingers are Point, Peace and Open palm, so those counts live on the named cards
+// instead of lighting a second card for the same hand.
 private let moves: [Move] = [
-    Move(id: "open", emoji: "👋", name: "Open palm", how: "Spread all five fingers, palm to the camera.", gesture: .open, count: 0),
-    Move(id: "fist", emoji: "✊", name: "Fist", how: "Curl every finger into your palm.", gesture: .fist, count: 0),
-    Move(id: "pinch", emoji: "🤏", name: "Pinch", how: "Touch your thumb tip to your index tip.", gesture: .pinch, count: 0),
-    Move(id: "peace", emoji: "✌️", name: "Peace", how: "Raise index and middle, fold the rest.", gesture: .peace, count: 0),
-    Move(id: "point", emoji: "☝️", name: "Point", how: "Raise only your index finger.", gesture: .point, count: 0),
-    Move(id: "thumbsUp", emoji: "👍", name: "Thumbs up", how: "Fist with your thumb pointing up.", gesture: .thumbsUp, count: 0),
-] + (1...5).map {
-    Move(id: "n\($0)", emoji: "\($0)️⃣", name: $0 == 1 ? "One finger" : "\($0) fingers",
-         how: "Hold up exactly \($0) finger\($0 == 1 ? "" : "s"), thumb included.", gesture: nil, count: $0)
+    named(.open, "👋", "Spread all five fingers, palm to the camera. Counts as 5."),
+    named(.fist, "✊", "Curl every finger into your palm."),
+    named(.pinch, "🤏", "Touch your thumb tip to your index tip."),
+    named(.peace, "✌️", "Raise index and middle, fold the rest. Counts as 2."),
+    named(.point, "☝️", "Raise only your index finger. Counts as 1."),
+    named(.thumbsUp, "👍", "Fist with your thumb pointing up."),
+    Move(id: "n3", emoji: "3️⃣", name: "3 fingers", how: "Raise index, middle and ring.", gesture: nil, count: 3),
+    Move(id: "n4", emoji: "4️⃣", name: "4 fingers", how: "Thumb and three fingers up, little finger down.", gesture: nil, count: 4),
+]
+
+/// Cards lit for this hand. A count card only lights when no named gesture claims the hand.
+func litMoves(_ g: Gesture, fingers: Int) -> Set<String> {
+    Set(moves.filter { m in m.gesture.map { $0 == g } ?? (g == .none && fingers == m.count) }.map(\.id))
 }
 
 struct LearnView: View {
     @AppStorage("learn.tried") private var triedRaw = ""
+    @Binding var tab: Tab
+    @Environment(\.snapshot) private var snapshot
 
-    private var tried: Set<String> { Set(triedRaw.split(separator: ",").map(String.init)) }
+    /// Ignores ids saved by older versions so progress can't pass the total.
+    private var tried: Set<String> { Set(triedRaw.split(separator: ",").map(String.init)).intersection(moves.map(\.id)) }
 
     var body: some View {
         let t = HandTracker.shared
-        // fingers > 0 implies a hand is present; a fist has 0 fingers so it never lights a count card.
-        let active = Set(moves.filter { m in m.gesture.map { $0 == t.gesture } ?? (t.fingers == m.count) }.map(\.id))
+        let active = litMoves(t.gesture, fingers: t.fingers)
         let done = tried
 
-        CameraStage { size in
-            // Right sidebar only: the centre of the camera stays clear for the hand.
-            HStack(spacing: 0) {
-                Spacer(minLength: 0)
-                panel(active: active, done: done)
-                    .frame(width: 340)
-                    .frame(maxHeight: max(size.height - 2 * Theme.pad, 0))
-                    .padding(Theme.pad)
-            }
-        }
-        .onChange(of: active) { _, now in
-            let merged = done.union(now)
-            if merged != done { withAnimation(Theme.spring) { triedRaw = merged.sorted().joined(separator: ",") } }
-        }
-    }
-
-    private func panel(active: Set<String>, done: Set<String>) -> some View {
-        VStack(alignment: .leading, spacing: 14) {
-            VStack(alignment: .leading, spacing: 4) {
-                Theme.title("Learn the moves")
-                Theme.caption("Show each gesture to the camera. Cards light up when Wave sees it.")
-                    .fixedSize(horizontal: false, vertical: true)
-            }
+        Panel(symbol: "hand.raised", title: "Learn the moves",
+              caption: "Show each gesture to the camera. Its card lights up when Wave sees it.") {
             HStack {
                 progress(done.count)
                 Spacer()
                 Button("Reset") { withAnimation(Theme.spring) { triedRaw = "" } }
-                    .buttonStyle(.plain).font(.system(size: 12, weight: .medium, design: .rounded))
-                    .foregroundStyle(.white.opacity(0.6)).opacity(done.isEmpty ? 0 : 1)
+                    .buttonStyle(GlassButtonStyle())
+                    .opacity(done.isEmpty ? 0 : 1)
                     .accessibilityHint("Clears your progress")
             }
             if done.count >= moves.count { celebration }
-            ScrollView {
-                VStack(spacing: 10) {
-                    ForEach(moves) { m in
-                        MoveCard(move: m, lit: active.contains(m.id), tried: done.contains(m.id))
-                    }
+            VStack(spacing: 10) {
+                ForEach(moves) { m in
+                    MoveCard(move: m, lit: active.contains(m.id), tried: done.contains(m.id))
                 }
-                .padding(.vertical, 4)
             }
-            .scrollIndicators(.hidden)
+            .panelScroll()
         }
-        .padding(Theme.pad)
-        .glass(corner: 28)
+        .stageColumn()
+        .onChange(of: active) { _, now in
+            guard !snapshot else { return }
+            let merged = done.union(now)
+            if merged != done { withAnimation(Theme.spring) { triedRaw = merged.sorted().joined(separator: ",") } }
+        }
     }
 
     private func progress(_ n: Int) -> some View {
@@ -94,12 +86,12 @@ struct LearnView: View {
     }
 
     private var celebration: some View {
-        Text("🎉 You're a natural. Try the Playground →")
-            .font(.system(size: 14, weight: .semibold, design: .rounded)).foregroundStyle(.white)
-            .padding(12).frame(maxWidth: .infinity)
-            .glass(corner: 16, highlighted: true)
-            .phaseAnimator([1.0, 1.03]) { v, s in v.scaleEffect(s) } animation: { _ in .easeInOut(duration: 1.2) }
-            .transition(.scale.combined(with: .opacity))
+        Button { withAnimation(Theme.spring) { tab = .playground } } label: {
+            Text("🎉 You're a natural. Try the Playground →").frame(maxWidth: .infinity)
+        }
+        .buttonStyle(GlassButtonStyle(prominent: true))
+        .phaseAnimator([1.0, 1.03]) { v, s in v.scaleEffect(s) } animation: { _ in .easeInOut(duration: 1.2) }
+        .transition(.scale.combined(with: .opacity))
     }
 }
 
@@ -109,20 +101,19 @@ private struct MoveCard: View {
 
     var body: some View {
         HStack(spacing: 14) {
-            Text(move.emoji).font(.system(size: 40)).frame(width: 54)
+            Text(move.emoji).font(.system(size: 32)).frame(width: 44)
             VStack(alignment: .leading, spacing: 2) {
-                Text(move.name).font(.system(size: 16, weight: .semibold, design: .rounded)).foregroundStyle(.white)
+                Theme.heading(move.name)
                 Theme.caption(move.how).fixedSize(horizontal: false, vertical: true)
             }
             Spacer(minLength: 0)
             if tried {
-                Image(systemName: "checkmark.circle.fill").font(.system(size: 20))
+                Image(systemName: "checkmark.circle.fill").font(.system(size: 18))
                     .foregroundStyle(Theme.success).transition(.scale.combined(with: .opacity))
             }
         }
-        .padding(12)
-        .glass(corner: 18, highlighted: lit)
-        .scaleEffect(lit ? 1.04 : hover ? 1.015 : 1)
+        .card(highlighted: lit)
+        .scaleEffect(lit ? 1.03 : hover ? 1.01 : 1)
         .animation(Theme.spring, value: lit)
         .animation(Theme.spring, value: hover)
         .animation(Theme.spring, value: tried)

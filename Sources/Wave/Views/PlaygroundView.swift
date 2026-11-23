@@ -1,19 +1,22 @@
 import SwiftUI
 
 struct PlaygroundView: View {
+    let size: CGSize
     @State private var world = PlaygroundWorld()
     @State private var listener: UUID?
+    @Environment(\.snapshot) private var snapshot
 
     var body: some View {
-        CameraStage { size in
-            ZStack(alignment: .topTrailing) {
+        ZStack {
+            // SCNView is Metal-backed, so snapshots can't capture it.
+            if !snapshot {
                 PlaygroundSceneView(world: world, size: size)
                     .allowsHitTesting(false)
-                PlaygroundHUD(world: world)
-                    .padding(Theme.pad)
             }
-            .frame(width: size.width, height: size.height)
+            PlaygroundHUD(world: world)
+                .stageColumn()
         }
+        .frame(width: size.width, height: size.height)
         .onAppear {
             let world = world
             listener = HandTracker.shared.onFrame { frame, gesture in world.update(frame, gesture) }
@@ -31,21 +34,12 @@ private struct PlaygroundHUD: View {
 
     var body: some View {
         let hold = world.holdProgress
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 8) {
-                Image(systemName: "cube.transparent")
-                    .font(.system(size: 17, weight: .semibold))
-                    .foregroundStyle(Theme.gradient)
-                Text("Playground")
-                    .font(.system(size: 17, weight: .semibold, design: .rounded))
-                    .foregroundStyle(.white)
-            }
-            Theme.caption("Pinch to grab · Fist to blast · Open palm to reset")
-                .fixedSize(horizontal: false, vertical: true)
+        Panel(symbol: "cube.transparent", title: "Playground",
+              caption: "Pinch to grab and throw. Make a fist to blast. Hold an open palm to reset.") {
             Button { world.respawn() } label: {
                 HStack(spacing: 8) {
                     ZStack {
-                        Circle().stroke(.white.opacity(0.15), lineWidth: 2.5)
+                        Circle().stroke(.white.opacity(0.2), lineWidth: 2.5)
                         Circle()
                             .trim(from: 0, to: hold)
                             .stroke(Theme.gradient, style: StrokeStyle(lineWidth: 2.5, lineCap: .round))
@@ -54,20 +48,12 @@ private struct PlaygroundHUD: View {
                             .font(.system(size: 10, weight: .bold))
                     }
                     .frame(width: 22, height: 22)
-                    Text("Reset").font(.system(size: 13, weight: .semibold, design: .rounded))
+                    Text("Reset objects")
                 }
-                .foregroundStyle(.white)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 7)
-                .glass(corner: 14, highlighted: hold > 0)
-                .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
+            .buttonStyle(GlassButtonStyle())
             .help("Respawn the objects")
         }
-        .padding(16)
-        .frame(width: 250, alignment: .leading)
-        .glass()
         .scaleEffect(hold > 0 ? 1.03 : 1)
         .animation(Theme.spring, value: hold > 0)
     }

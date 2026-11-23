@@ -73,6 +73,11 @@ enum SelfTest {
         check("viewPoint centre", viewPoint(CGPoint(x: 0.5, y: 0.5), in: CGSize(width: 800, height: 600)) == CGPoint(x: 400, y: 300))
         check("viewPoint corner in 16:9 view", viewPoint(.zero, in: CGSize(width: 1600, height: 900)) == .zero)
 
+        check("learn: open palm lights one card", litMoves(.open, fingers: 5) == ["open"])
+        check("learn: point lights one card", litMoves(.point, fingers: 2) == ["point"])
+        check("learn: unnamed 3 lights the count", litMoves(.none, fingers: 3) == ["n3"])
+        check("learn: no hand lights nothing", litMoves(.none, fingers: 0).isEmpty)
+
         ShortcutEngine.selfCheck()  // asserts; traps on failure in debug builds
         print("PASS shortcut engine state machine")
         check("feature checks", FeatureChecks.run())

@@ -42,6 +42,7 @@ For `point` and `peace` the thumb is ignored. A finger counts as extended when t
 | `var frame: HandFrame` holds the latest frame and is updated every frame. | `HandTracker.shared.frame.hands.count` |
 | `var gesture: Gesture` is the stable gesture of the first hand, or `.none` when there is no hand. | `if t.gesture == .fist { … }` |
 | `var fingers: Int` is the finger count of the first hand. | `Text("\(t.fingers)")` |
+| `var handVisible: Bool` is true while at least one hand is in frame. It only changes on transitions, so it is cheap to observe. | `if t.handVisible { … }` |
 | `var authorized: Bool?` is nil before asking, false if denied, true once the camera is running. | `if t.authorized == false { … }` |
 | `var detectFaces: Bool` (default false). Set it to true to fill `frame.face`. | `HandTracker.shared.detectFaces = true` |
 | `var gesturesAllowed: Bool` (default true). The face check sets it to false to block gestures. | `guard t.gesturesAllowed else { return }` |
@@ -54,9 +55,21 @@ For `point` and `peace` the thumb is ignored. A finger counts as extended when t
 ## CameraStage.swift
 | API | Example |
 |---|---|
-| `struct CameraStage<Content: View>` shows the mirrored camera, the hand skeleton, a gesture badge at top-left, your content and a camera-denied message. | `CameraStage { size in MyLayer(size: size) }` |
+| `struct CameraStage<Content: View>` is the one stage behind every tab, built once in `WaveRoot`. It shows the mirrored camera, the hand skeleton, the gesture badge (top-left), the "Raise a hand" hint, the camera-denied card, and your content. Tabs do **not** wrap themselves in it. | `CameraStage { size in MyTab(size: size) }` |
 | `struct CameraPreview: NSViewRepresentable` is the bare mirrored video. | `CameraPreview(authorized: t.authorized)` |
 | `struct HandOverlay: View` draws joints and bones. | `HandOverlay()` |
+| `@Environment(\.snapshot)` is true while `--snapshot` renders. Skip camera, Metal, system prompts and clipboard reads when it is set. | `if !snapshot { … }` |
+
+## Theme.swift
+Every tab uses the same layout: one `Panel` pinned to the right column with `stageColumn()`.
+| API | Example |
+|---|---|
+| `Panel(symbol:title:caption:) { … }` is the glass panel with the shared header, 360 pt wide. | `Panel(symbol: "bolt.fill", title: "Shortcuts", caption: "…") { … }.stageColumn()` |
+| `.stageColumn()` pins a panel top-right, clear of the traffic lights and the tab bar (`Theme.insets`). | see above |
+| `.panelScroll()` hugs the content when it fits and scrolls with soft edges when it doesn't. | `VStack { cards }.panelScroll()` |
+| `.card(highlighted:)` is the lighter platter for cards inside a panel. `.glass()` is for things floating directly over the camera. | `row.card(highlighted: lit)` |
+| `GlassButtonStyle(prominent:)` gives a capsule with hover and press states. `GlassToggleStyle` is applied app-wide. | `.buttonStyle(GlassButtonStyle(prominent: true))` |
+| `Theme.title / heading / caption` are the type styles. | `Theme.caption("…")` |
 
 ## Output.swift
 | API | Example |
@@ -76,5 +89,5 @@ For `point` and `peace` the thumb is ignored. A finger counts as extended when t
 - Respect `gesturesAllowed`. `onFrame` already does. If you act on `HandTracker.shared.gesture` directly, check `gesturesAllowed` first. Use `onAnyFrame` only for things that must run while gestures are blocked.
 - Do not keep `frame.pixelBuffer` after the callback returns. Holding buffers starves the camera pool and freezes capture.
 - Listener callbacks run on main every frame (about 30 fps), so keep them cheap.
-- Run checks with `swift build && swift run Wave --selftest`. To test the camera, use `./build.sh` and open `build/Wave.app`, because camera permission only works from the app bundle.
+- Run checks with `swift build && swift run Wave --selftest`. Render the UI without a camera with `swift run Wave --snapshot <dir>`, which writes one PNG per tab. To test the camera, use `./build.sh` and open `build/Wave.app`, because camera permission only works from the app bundle.
 - Every `./build.sh` signs the app ad hoc again. After a rebuild, macOS may ask for the camera again, and Accessibility can silently stop working. If that happens, remove Wave from System Settings → Accessibility and add it back.

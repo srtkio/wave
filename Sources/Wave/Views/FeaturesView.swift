@@ -2,26 +2,16 @@ import SwiftUI
 
 struct FeaturesView: View {
     var body: some View {
-        CameraStage { size in
-            ZStack(alignment: .trailing) {
-                BannerLayer()
-                ScrollView {
-                    VStack(spacing: 14) {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Theme.title("Features")
-                            Theme.caption("Switch on what Wave does with your hands. They keep working on every tab.")
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(Theme.pad)
-                        .glass()
-                        ForEach(FeatureHub.shared.all, id: \.key) { FeatureCard(feature: $0) }
-                    }
-                    .padding(Theme.pad)
+        ZStack {
+            BannerLayer()
+            Panel(symbol: "switch.2", title: "Features",
+                  caption: "Switch on what Wave does with your hands. They keep working on every tab.") {
+                VStack(spacing: 10) {
+                    ForEach(FeatureHub.shared.all, id: \.key) { FeatureCard(feature: $0) }
                 }
-                .scrollIndicators(.hidden)
-                .frame(width: min(440, size.width * 0.5))
+                .panelScroll()
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .trailing)
+            .stageColumn()
         }
     }
 }
@@ -35,7 +25,7 @@ private struct BannerLayer: View {
                 .foregroundStyle(.white)
                 .shadow(color: Theme.accent.opacity(0.8), radius: 24)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .padding(.trailing, 440)
+                .padding(.trailing, Theme.panelWidth + Theme.insets.trailing) // centred in the camera left of the panel
                 .id(text)
                 .transition(.scale.combined(with: .opacity))
                 .animation(Theme.spring, value: text)
@@ -53,20 +43,20 @@ private struct FeatureCard: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(spacing: 14) {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .top, spacing: 12) {
                 Image(systemName: feature.symbol)
-                    .font(.system(size: 20, weight: .semibold))
-                    .foregroundStyle(.white.opacity(on ? 1 : 0.7))
-                    .frame(width: 44, height: 44)
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundStyle(on ? AnyShapeStyle(.black.opacity(0.8)) : AnyShapeStyle(.white.opacity(0.75)))
+                    .frame(width: 38, height: 38)
                     .background(on ? AnyShapeStyle(Theme.gradient) : AnyShapeStyle(.white.opacity(0.12)),
-                                in: RoundedRectangle(cornerRadius: 13, style: .continuous))
+                                in: RoundedRectangle(cornerRadius: 11, style: .continuous))
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(feature.name).font(.system(size: 16, weight: .semibold, design: .rounded)).foregroundStyle(.white)
+                    Theme.heading(feature.name)
                     Theme.caption(feature.blurb).fixedSize(horizontal: false, vertical: true)
                 }
-                Spacer(minLength: 8)
-                Toggle(feature.name, isOn: $on).labelsHidden().toggleStyle(.switch).tint(Theme.accent)
+                Spacer(minLength: 4)
+                Toggle(feature.name, isOn: $on).labelsHidden()
             }
             HStack(spacing: 8) {
                 Circle()
@@ -80,18 +70,12 @@ private struct FeatureCard: View {
                 Spacer(minLength: 8)
                 if let label = feature.action {
                     Button(label) { feature.act() }
-                        .buttonStyle(.plain)
-                        .font(.system(size: 12, weight: .semibold, design: .rounded))
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 12).padding(.vertical, 6)
-                        .background(Theme.gradient, in: Capsule())
-                        .opacity(feature.busy ? 0.4 : 1)
+                        .buttonStyle(GlassButtonStyle(prominent: true))
                         .disabled(feature.busy)
                 }
             }
         }
-        .padding(16)
-        .glass(highlighted: on)
+        .card(highlighted: on)
         .animation(Theme.spring, value: on)
         .onChange(of: on) { FeatureHub.shared.sync() }
     }
