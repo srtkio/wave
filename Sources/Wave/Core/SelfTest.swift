@@ -76,6 +76,7 @@ enum SelfTest {
         ShortcutEngine.selfCheck()  // asserts; traps on failure in debug builds
         print("PASS shortcut engine state machine")
         check("feature checks", FeatureChecks.run())
+        check("playground math", PlaygroundMath.selfCheck())
 
         print(failed == 0 ? "ALL PASS" : "\(failed) FAILED")
         exit(failed == 0 ? 0 : 1)
