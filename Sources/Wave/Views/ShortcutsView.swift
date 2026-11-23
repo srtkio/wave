@@ -153,7 +153,7 @@ private struct ClipList: View {
             HStack {
                 VStack(alignment: .leading, spacing: 2) {
                     Theme.heading("Clipboard history")
-                    Theme.caption(e.historyOpen ? "Move left or right, release to paste" : "Pinch and hold, then move your hand")
+                    Theme.caption(e.historyOpen ? "Move right to go down the list, release to paste" : "Pinch and hold, then move your hand")
                 }
                 Spacer()
                 Toggle("Clipboard history", isOn: $on).labelsHidden()

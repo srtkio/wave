@@ -49,6 +49,8 @@ struct LearnView: View {
                 Button("Reset") { withAnimation(Theme.spring) { triedRaw = "" } }
                     .buttonStyle(GlassButtonStyle())
                     .opacity(done.isEmpty ? 0 : 1)
+                    .disabled(done.isEmpty)
+                    .accessibilityHidden(done.isEmpty)
                     .accessibilityHint("Clears your progress")
             }
             if done.count >= moves.count { celebration }
