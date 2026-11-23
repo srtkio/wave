@@ -269,4 +269,6 @@ Each feature is a separate file that runs only when its toggle is on.
 3. ✅ Write PLAN.md (this file)
 4. ✅ Create GitHub repo `srtkio/wave`
 5. ✅ Set active Xcode (`sudo xcode-select --switch /Applications/Xcode.app/Contents/Developer`)
-6. ⬜ Create Package.swift and start Phase 1
+6. ✅ Phases 1–3 built overnight (2026-11-24): core, Learn, Playground, Shortcuts, Features + face check, UI polish, app icon. 50 self-checks pass; screenshots in docs/screenshots/
+7. ⬜ First real run with the camera: grant Camera + Accessibility, check overlay alignment, tune thresholds (face-match distance, pinch, hold times)
+8. ⬜ Merge build-mvp into main
