@@ -1,4 +1,4 @@
-# Airhand: Hand-Gesture App for Mac — Implementation Plan
+# Wave: Hand-Gesture App for Mac — Implementation Plan
 
 **Status:** Pre-development  
 **Created:** 2026-11-23  
@@ -21,10 +21,10 @@
 
 ### Project Structure
 ```
-airhand/
+wave/
 ├── Package.swift
-├── Sources/Airhand/
-│   ├── AirhandApp.swift           SwiftUI app, menu bar, tab view
+├── Sources/Wave/
+│   ├── WaveApp.swift           SwiftUI app, menu bar, tab view
 │   ├── Core/
 │   │   ├── HandTracker.swift      AVCaptureSession + Vision framework
 │   │   ├── Gestures.swift         Pose detection rules (open, fist, pinch, V, counts)
@@ -54,7 +54,7 @@ airhand/
 **Deliverable:** Tab view opens, camera shows joints, gestures are recognized.
 
 **Files to create:**
-1. **AirhandApp.swift**
+1. **WaveApp.swift**
    - SwiftUI app with @main
    - Menu bar icon (NSStatusBar)
    - Tab view with four tabs: Learn, Playground, Shortcuts, Features
@@ -208,7 +208,7 @@ Each feature is a separate file that runs only when its toggle is on.
 
 ## GitHub Repository
 
-**Repo:** `srtkio/airhand` (private)  
+**Repo:** `srtkio/wave` (private)  
 **Branch:** `main` (default)  
 **Files:**
 - Source files (all of the above)
@@ -267,6 +267,6 @@ Each feature is a separate file that runs only when its toggle is on.
 1. ✅ Install Xcode 27.2 (build 27B52)
 2. ✅ Create project folder and git repo
 3. ✅ Write PLAN.md (this file)
-4. ✅ Create GitHub repo `srtkio/airhand`
+4. ✅ Create GitHub repo `srtkio/wave`
 5. ✅ Set active Xcode (`sudo xcode-select --switch /Applications/Xcode.app/Contents/Developer`)
 6. ⬜ Create Package.swift and start Phase 1
