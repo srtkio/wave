@@ -10,7 +10,7 @@
 
 ### Environment
 - **macOS:** 27.2 (27B52)
-- **Xcode:** 27.2 (Apple Silicon)
+- **Xcode:** 27.2 (Apple Silicon), not installed yet; Command Line Tools with Swift 6.4 are present
 - **Swift:** 6.4
 - **Dependencies:** None. Uses only built-in frameworks:
   - `AVFoundation` (camera)
@@ -208,7 +208,7 @@ Each feature is a separate file that runs only when its toggle is on.
 
 ## GitHub Repository
 
-**Repo:** `srtkio/airhand` (private, no Claude attribution in commits)  
+**Repo:** `srtkio/airhand` (private)  
 **Branch:** `main` (default)  
 **Files:**
 - Source files (all of the above)
@@ -264,9 +264,9 @@ Each feature is a separate file that runs only when its toggle is on.
 ---
 
 ## Next Steps
-1. ✅ Install Xcode 27.2
+1. ⬜ Install Xcode 27.2 (needs your Apple ID sign-in; Homebrew `mas` + `xcodes` already installed)
 2. ✅ Create project folder and git repo
 3. ✅ Write PLAN.md (this file)
-4. ⬜ Create GitHub repo `srtkio/airhand`
+4. ✅ Create GitHub repo `srtkio/airhand`
 5. ⬜ Set active Xcode (`sudo xcode-select --switch /Applications/Xcode.app/Contents/Developer`)
 6. ⬜ Create Package.swift and start Phase 1
