@@ -73,6 +73,9 @@ enum SelfTest {
         check("viewPoint centre", viewPoint(CGPoint(x: 0.5, y: 0.5), in: CGSize(width: 800, height: 600)) == CGPoint(x: 400, y: 300))
         check("viewPoint corner in 16:9 view", viewPoint(.zero, in: CGSize(width: 1600, height: 900)) == .zero)
 
+        ShortcutEngine.selfCheck()  // asserts; traps on failure in debug builds
+        print("PASS shortcut engine state machine")
+
         print(failed == 0 ? "ALL PASS" : "\(failed) FAILED")
         exit(failed == 0 ? 0 : 1)
     }
