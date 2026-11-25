@@ -1,6 +1,6 @@
 # Wave: Hand-Gesture App for Mac — Implementation Plan
 
-**Status:** Pre-development  
+**Status:** v0.2 built (menu-bar app, cursor mode, hand signs); next = face recognition  
 **Created:** 2026-11-23  
 **Goal:** A lightweight macOS app that tracks your hands via webcam and enables gesture-based shortcuts, 3D playground, and optional features (face verification, media controls, meeting gestures, air drawing).
 
@@ -270,5 +270,14 @@ Each feature is a separate file that runs only when its toggle is on.
 4. ✅ Create GitHub repo `srtkio/wave`
 5. ✅ Set active Xcode (`sudo xcode-select --switch /Applications/Xcode.app/Contents/Developer`)
 6. ✅ Phases 1–3 built overnight (2026-11-24): core, Learn, Playground, Shortcuts, Features + face check, UI polish, app icon. 50 self-checks pass; screenshots in docs/screenshots/
+### v2: menu-bar redesign (2026-11-25)
+1. ✅ Notch HUD, Wave on/off, closest-hand-only filter
+2. ✅ Menu-bar app: no Dock icon, no window at launch, window optional
+3. ✅ Hand signs (👍 🤘 🤙 ✌️ 👌 L) with actions chosen in the menu bar
+4. ⬜ **Next: real face recognition** (replaces the convenience face check)
+5. ✅ Cursor mode: pinch-hold to start, clicks, drag, scroll, two-hand pinch to exit
+6. ✅ Docs: README, docs/GESTURES.md, CHANGELOG.md
+
+### Still open
 7. ⬜ First real run with the camera: grant Camera + Accessibility, check overlay alignment, tune thresholds (face-match distance, pinch, hold times)
 8. ⬜ Merge build-mvp into main

@@ -1,6 +1,6 @@
 # Wave Core API
 
-Everything in `Sources/Wave/Core/`. Tab authors build on this and do not change it.
+Everything in `Sources/Wave/Core/`, plus the cursor and hand-sign engines from `Sources/Wave/Features/`. Tab authors build on this and do not change it.
 
 ## Coordinates
 Every point and rect is **normalised 0–1, origin top-left, mirrored like a selfie**, so it matches the preview. Draw with `viewPoint(p, in: size)`.
@@ -44,13 +44,40 @@ For `point` and `peace` the thumb is ignored. A finger counts as extended when t
 | `var fingers: Int` is the finger count of the first hand. | `Text("\(t.fingers)")` |
 | `var handVisible: Bool` is true while at least one hand is in frame. It only changes on transitions, so it is cheap to observe. | `if t.handVisible { … }` |
 | `var authorized: Bool?` is nil before asking, false if denied, true once the camera is running. | `if t.authorized == false { … }` |
+| `var running: Bool` is true while Wave is on (camera running). Set it with `start()` and `stop()`. | `if t.running { … }` |
+| `var cursorActive: Bool` is true while cursor mode owns the hand. Other gesture features must stay quiet. | `guard !t.cursorActive else { return }` |
 | `var detectFaces: Bool` (default false). Set it to true to fill `frame.face`. | `HandTracker.shared.detectFaces = true` |
 | `var gesturesAllowed: Bool` (default true). The face check sets it to false to block gestures. | `guard t.gesturesAllowed else { return }` |
+| `func stop()` turns Wave off: stops the camera, ends cursor mode, clears the seen hands. | `HandTracker.shared.stop()` |
 | `let session: AVCaptureSession` | used by `CameraPreview` |
-| `func start()` asks for camera access and starts capture. It is safe to call more than once, and the app already calls it. | `HandTracker.shared.start()` |
+| `func start()` turns Wave on: shows "Wave on" in the notch, asks for camera access and starts capture. It is safe to call more than once. The menu bar switch and the window call it. | `HandTracker.shared.start()` |
 | `@discardableResult func onFrame(_ f: @escaping (HandFrame, Gesture) -> Void) -> UUID` runs on main every frame, but **only while `gesturesAllowed`**. | `id = t.onFrame { frame, g in … }` |
 | `@discardableResult func onAnyFrame(_ f: @escaping (HandFrame, Gesture) -> Void) -> UUID` runs on main every frame, always. It exists for the face check. | `id = t.onAnyFrame { frame, _ in … }` |
 | `func removeListener(_ id: UUID)` removes a listener registered with either call. | `t.removeListener(id)` |
+
+### Closest hand
+`primaryHands(_:)` (bottom of HandTracker.swift) drops hands whose `palmSize` is under `minPalmSize` (0.08 of the frame) and sorts the rest closest first. The tracker applies it before anything else, so `frame.hands.first` is always the closest hand.
+
+## Signs.swift (pure logic)
+| API | Example |
+|---|---|
+| `enum Sign { case rock, callMe, ok, l, thumbsUp, peace }` with `emoji` and `title`. | `Sign.ok.emoji` |
+| `func sign(_ h: Hand) -> Sign?` is the sign the hand is making, or nil. Palm-relative like `classify`. A plain pinch is not a sign. | `sign(hand) == .l` |
+
+## NotchHUD.swift
+`NotchHUD.shared` is `@Observable`. It owns the black pill under the notch, created lazily.
+| API | Example |
+|---|---|
+| `flash(_ text:, symbol:, seconds: 1.4)` shows something briefly. | `NotchHUD.shared.flash("Copied", symbol: "doc.on.doc")` |
+| `setSticky(_ text: String?, symbol:)` stays until set to nil (used for "Cursor"). | `NotchHUD.shared.setSticky(nil)` |
+| `progress: Double?` shows a ring on the right for 0...1, nil hides it. | `NotchHUD.shared.progress = 0.4` |
+| `NotchPill(notch:hud:)` is the view, and `headless` skips the real panel. Both exist so `--snapshot` can render it. | |
+
+## CursorMode.swift and CursorCore.swift
+`CursorCore` is a pure state machine: `step(t:hands:) -> [CursorEvent]` (move, leftDown/Up, leftClick(n), rightClick, scroll, scrollMode, enter, exit, progress). All thresholds are static lets on it. `CursorMode.shared` feeds it from `onAnyFrame`, posts CGEvents, sets `HandTracker.cursorActive` and drives the notch. `CursorMode.shared.stop()` ends it at once (called by `HandTracker.stop()`).
+
+## HandSigns.swift
+`HandSigns.shared` runs a `Hold` timer (0.8 s hold, 0.5 s re-arm, 0.15 s grace) on `sign(hand)` and runs the `SignAction` bound to the sign: copy, paste, play/pause, next/previous, volume, Mission Control, screenshot, or `.shortcut(name)`. `enabled` and `actions` persist in UserDefaults. It is silent while `cursorActive`. `HandSignsMenu` is its menu-bar section.
 
 ## CameraStage.swift
 | API | Example |
