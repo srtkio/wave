@@ -77,26 +77,25 @@ For `point` and `peace` the thumb is ignored. A finger counts as extended when t
 `CursorCore` is a pure state machine: `step(t:hands:) -> [CursorEvent]` (move, leftDown/Up, leftClick(n), rightClick, scroll, scrollMode, enter, exit, progress). All thresholds are static lets on it. `CursorMode.shared` feeds it from `onAnyFrame`, posts CGEvents, sets `HandTracker.cursorActive` and drives the notch. `CursorMode.shared.stop()` ends it at once (called by `HandTracker.stop()`).
 
 ## HandSigns.swift
-`HandSigns.shared` runs a `Hold` timer (0.8 s hold, 0.5 s re-arm, 0.15 s grace) on `sign(hand)` and runs the `SignAction` bound to the sign: copy, paste, play/pause, next/previous, volume, Mission Control, screenshot, or `.shortcut(name)`. `enabled` and `actions` persist in UserDefaults. It is silent while `cursorActive`. `HandSignsMenu` is its menu-bar section.
+`HandSigns.shared` runs a `Hold` timer (0.8 s hold, 0.5 s re-arm, 0.15 s grace) on `sign(hand)` and runs the `SignAction` bound to the sign: copy, paste, play/pause, next/previous, volume, Mission Control, screenshot, or `.shortcut(name)`. `enabled` and `actions` persist in UserDefaults. It is silent while `cursorActive`. `HandSignsView` (Views/) is its page in the window; the menu bar only has its on/off switch.
 
 ## CameraStage.swift
 | API | Example |
 |---|---|
-| `struct CameraStage<Content: View>` is the one stage behind every tab, built once in `WaveRoot`. It shows the mirrored camera, the hand skeleton, the gesture badge (top-left), the "Raise a hand" hint, the camera-denied card, and your content. Tabs do **not** wrap themselves in it. | `CameraStage { size in MyTab(size: size) }` |
+| `struct CameraStage<Content: View>` is the mirrored camera with the hand skeleton and face dots, filling its frame, with your content on top. It shows "Camera off" while Wave is off and a short message when access is denied. Used full size by Playground and full screen. | `CameraStage { size in MyOverlay(size: size) }` |
+| `struct CameraCard` is the usual small camera: 16:9, rounded, optional fullscreen button and overlay. | `CameraCard(width: 360)` / `CameraCard(width: 480, onFullscreen: f) { banner }` |
 | `struct CameraPreview: NSViewRepresentable` is the bare mirrored video. | `CameraPreview(authorized: t.authorized)` |
-| `struct HandOverlay: View` draws joints and bones. | `HandOverlay()` |
+| `struct HandOverlay: View` draws joints, bones and `frame.faceLandmarks` dots. | `HandOverlay()` |
+| `struct GestureBadge` is the dark "what the camera sees" capsule for large camera views. | `GestureBadge()` |
 | `@Environment(\.snapshot)` is true while `--snapshot` renders. Skip camera, Metal, system prompts and clipboard reads when it is set. | `if !snapshot { … }` |
 
 ## Theme.swift
-Every tab uses the same layout: one `Panel` pinned to the right column with `stageColumn()`.
+Native macOS look: system backgrounds, the user's accent colour, semantic colours (`.green` OK, `.orange` needs attention), default text styles. Pages are a `Form` with `.formStyle(.grouped)` where they can be.
 | API | Example |
 |---|---|
-| `Panel(symbol:title:caption:) { … }` is the glass panel with the shared header, 360 pt wide. | `Panel(symbol: "bolt.fill", title: "Shortcuts", caption: "…") { … }.stageColumn()` |
-| `.stageColumn()` pins a panel top-right, clear of the traffic lights and the tab bar (`Theme.insets`). | see above |
-| `.panelScroll()` hugs the content when it fits and scrolls with soft edges when it doesn't. | `VStack { cards }.panelScroll()` |
-| `.card(highlighted:)` is the lighter platter for cards inside a panel. `.glass()` is for things floating directly over the camera. | `row.card(highlighted: lit)` |
-| `GlassButtonStyle(prominent:)` gives a capsule with hover and press states. `GlassToggleStyle` is applied app-wide. | `.buttonStyle(GlassButtonStyle(prominent: true))` |
-| `Theme.title / heading / caption` are the type styles. | `Theme.caption("…")` |
+| `Theme.accent` is the system accent colour. `Theme.accent2` equals it (AirInk mixes the two). | `.foregroundStyle(Theme.accent)` |
+| `Theme.spring` is the shared animation; `Theme.corner` (10) the corner radius. | `withAnimation(Theme.spring) { … }` |
+| `.card(highlighted:)` is a platter like a grouped-form section, for cards outside a Form. | `row.card(highlighted: lit)` |
 
 ## Output.swift
 | API | Example |
@@ -116,5 +115,5 @@ Every tab uses the same layout: one `Panel` pinned to the right column with `sta
 - Respect `gesturesAllowed`. `onFrame` already does. If you act on `HandTracker.shared.gesture` directly, check `gesturesAllowed` first. Use `onAnyFrame` only for things that must run while gestures are blocked.
 - Do not keep `frame.pixelBuffer` after the callback returns. Holding buffers starves the camera pool and freezes capture.
 - Listener callbacks run on main every frame (about 30 fps), so keep them cheap.
-- Run checks with `swift build && swift run Wave --selftest`. Render the UI without a camera with `swift run Wave --snapshot <dir>`, which writes one PNG per tab. To test the camera, use `./build.sh` and open `build/Wave.app`, because camera permission only works from the app bundle.
+- Run checks with `swift build && swift run Wave --selftest`. Render the UI without a camera with `scripts/snapshot.sh <dir>`, which writes each page in light and dark. To test the camera, use `./build.sh` and open `build/Wave.app`, because camera permission only works from the app bundle.
 - Every `./build.sh` signs the app ad hoc again. After a rebuild, macOS may ask for the camera again, and Accessibility can silently stop working. If that happens, remove Wave from System Settings → Accessibility and add it back.

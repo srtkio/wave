@@ -30,7 +30,7 @@ func litMoves(_ g: Gesture, fingers: Int) -> Set<String> {
 
 struct LearnView: View {
     @AppStorage("learn.tried") private var triedRaw = ""
-    @Binding var tab: Tab
+    @Binding var page: Page?
     @Environment(\.snapshot) private var snapshot
 
     /// Ignores ids saved by older versions so progress can't pass the total.
@@ -41,85 +41,65 @@ struct LearnView: View {
         let active = litMoves(t.gesture, fingers: t.fingers)
         let done = tried
 
-        Panel(symbol: "hand.raised", title: "Learn the moves",
-              caption: "Show each gesture to the camera. Its card lights up when Wave sees it.") {
-            HStack {
-                progress(done.count)
-                Spacer()
-                Button("Reset") { withAnimation(Theme.spring) { triedRaw = "" } }
-                    .buttonStyle(GlassButtonStyle())
-                    .opacity(done.isEmpty ? 0 : 1)
-                    .disabled(done.isEmpty)
-                    .accessibilityHidden(done.isEmpty)
-                    .accessibilityHint("Clears your progress")
-            }
-            if done.count >= moves.count { celebration }
-            VStack(spacing: 10) {
-                ForEach(moves) { m in
-                    MoveCard(move: m, lit: active.contains(m.id), tried: done.contains(m.id))
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                HStack(alignment: .top, spacing: 20) {
+                    CameraCard(width: 360)
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("Learn the moves").font(.title2.weight(.semibold))
+                        Text("Show each gesture to the camera. Its card lights up when Wave sees it.")
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                        ProgressView(value: Double(done.count), total: Double(moves.count)) {
+                            Text("\(done.count) of \(moves.count) tried").monospacedDigit()
+                        }
+                        .frame(maxWidth: 260)
+                        HStack {
+                            if done.count >= moves.count {
+                                Button("Try the Playground") { page = .playground }.buttonStyle(.borderedProminent)
+                            }
+                            if !done.isEmpty {
+                                Button("Reset") { withAnimation(Theme.spring) { triedRaw = "" } }
+                                    .accessibilityHint("Clears your progress")
+                            }
+                        }
+                    }
+                }
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 240), spacing: 12)], spacing: 12) {
+                    ForEach(moves) { m in
+                        MoveCard(move: m, lit: active.contains(m.id), tried: done.contains(m.id))
+                    }
                 }
             }
-            .panelScroll()
+            .padding(20)
         }
-        .stageColumn()
         .onChange(of: active) { _, now in
             guard !snapshot else { return }
             let merged = done.union(now)
             if merged != done { withAnimation(Theme.spring) { triedRaw = merged.sorted().joined(separator: ",") } }
         }
     }
-
-    private func progress(_ n: Int) -> some View {
-        Text("\(n) / \(moves.count) tried")
-            .font(.system(size: 13, weight: .semibold, design: .rounded)).foregroundStyle(.white)
-            .padding(.horizontal, 12).padding(.vertical, 6)
-            .background {
-                GeometryReader { g in
-                    ZStack(alignment: .leading) {
-                        Capsule().fill(.white.opacity(0.12))
-                        Capsule().fill(Theme.gradient)
-                            .frame(width: g.size.width * CGFloat(n) / CGFloat(moves.count))
-                    }
-                }
-            }
-            .clipShape(Capsule())
-            .animation(Theme.spring, value: n)
-            .accessibilityLabel("\(n) of \(moves.count) gestures tried")
-    }
-
-    private var celebration: some View {
-        Button { withAnimation(Theme.spring) { tab = .playground } } label: {
-            Text("🎉 You're a natural. Try the Playground →").frame(maxWidth: .infinity)
-        }
-        .buttonStyle(GlassButtonStyle(prominent: true))
-        .phaseAnimator([1.0, 1.03]) { v, s in v.scaleEffect(s) } animation: { _ in .easeInOut(duration: 1.2) }
-        .transition(.scale.combined(with: .opacity))
-    }
 }
 
 private struct MoveCard: View {
     let move: Move, lit: Bool, tried: Bool
-    @State private var hover = false
 
     var body: some View {
-        HStack(spacing: 14) {
-            Text(move.emoji).font(.system(size: 32)).frame(width: 44)
+        HStack(alignment: .top, spacing: 12) {
+            Text(move.emoji).font(.system(size: 28)).frame(width: 36)
             VStack(alignment: .leading, spacing: 2) {
-                Theme.heading(move.name)
-                Theme.caption(move.how).fixedSize(horizontal: false, vertical: true)
+                Text(move.name).font(.headline)
+                Text(move.how).font(.callout).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             }
             Spacer(minLength: 0)
             if tried {
-                Image(systemName: "checkmark.circle.fill").font(.system(size: 18))
-                    .foregroundStyle(Theme.success).transition(.scale.combined(with: .opacity))
+                Image(systemName: "checkmark.circle.fill").foregroundStyle(.green).transition(.opacity)
             }
         }
+        .frame(maxHeight: .infinity, alignment: .top)
         .card(highlighted: lit)
-        .scaleEffect(lit ? 1.03 : hover ? 1.01 : 1)
         .animation(Theme.spring, value: lit)
-        .animation(Theme.spring, value: hover)
         .animation(Theme.spring, value: tried)
-        .onHover { hover = $0 }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(move.name). \(move.how)\(tried ? " Tried." : "")\(lit ? " Detected now." : "")")
     }

@@ -6,18 +6,16 @@ struct WaveMain {
     static func main() {
         // Must branch before anything touches the camera or NSApplication.
         if CommandLine.arguments.contains("--selftest") { SelfTest.run() }
-        NSApplication.shared.appearance = NSAppearance(named: .darkAqua) // glass over a camera only works dark
         if let i = CommandLine.arguments.firstIndex(of: "--snapshot"), i + 1 < CommandLine.arguments.count {
             MainActor.assumeIsolated { Snapshot.run(to: CommandLine.arguments[i + 1]) }
         }
-        NSApp.setActivationPolicy(.regular) // normal app: Dock icon, window at launch; menu bar + notch still work
+        NSApplication.shared.setActivationPolicy(.regular) // creates NSApp; normal app: Dock icon, window at launch; menu bar + notch still work
         WaveApp.main()
     }
 }
 
 struct WaveApp: App {
     init() {
-        ShortcutEngine.shared.start()
         FeatureHub.shared.start()
         HandSigns.shared.start()
         CursorMode.shared.start()
@@ -27,11 +25,9 @@ struct WaveApp: App {
         // Opens at launch and from the Dock icon; the menu bar and notch keep working when it is closed.
         Window("Wave", id: "main") {
             WaveRoot()
-                .frame(minWidth: 960, minHeight: 640)
                 .onAppear { HandTracker.shared.start() } // the window needs the camera
         }
-        .windowStyle(.hiddenTitleBar)
-        .defaultSize(width: 1280, height: 800)
+        .defaultSize(width: 1180, height: 760)
         MenuBarExtra {
             MenuPanel()
         } label: {
@@ -41,136 +37,202 @@ struct WaveApp: App {
     }
 }
 
-enum Tab: String, CaseIterable {
-    case learn, playground, shortcuts, features
+enum Page: String, CaseIterable, Identifiable {
+    case home, cursor, signs, features, learn, playground, log
+    var id: Self { self }
 
-    var title: String { rawValue.capitalized }
+    var title: String {
+        switch self {
+        case .home: "Home"
+        case .cursor: "Cursor"
+        case .signs: "Hand Signs"
+        case .features: "Features"
+        case .learn: "Learn"
+        case .playground: "Playground"
+        case .log: "Log"
+        }
+    }
     var symbol: String {
         switch self {
-        case .learn: "hand.raised.fill"
-        case .playground: "cube.transparent.fill"
-        case .shortcuts: "bolt.fill"
+        case .home: "house"
+        case .cursor: "cursorarrow.motionlines"
+        case .signs: "hand.raised"
         case .features: "switch.2"
+        case .learn: "graduationcap"
+        case .playground: "cube"
+        case .log: "doc.plaintext"
         }
     }
 }
 
-/// The window: one camera stage shared by all tabs, with a floating tab bar.
+/// The window: a sidebar of pages, or the camera filling the window while fullscreen is on.
 struct WaveRoot: View {
-    @State private var tab: Tab
+    @State private var page: Page?
+    @State private var fullscreen = false
+    @State private var enteredNativeFullscreen = false
+    @Environment(\.snapshot) private var snapshot
 
-    init(tab: Tab = .learn) { _tab = State(initialValue: tab) }
-
-    var body: some View {
-        let denied = HandTracker.shared.authorized == false
-        CameraStage { size in
-            Group {
-                switch tab {
-                case .learn: LearnView(tab: $tab)
-                case .playground: PlaygroundView(size: size)
-                case .shortcuts: ShortcutsView()
-                case .features: FeaturesView()
-                }
-            }
-            .transition(.asymmetric(insertion: .opacity.combined(with: .offset(x: 30)), removal: .opacity))
-        }
-        .overlay(alignment: .bottom) {
-            if !denied { TabBar(tab: $tab).padding(.bottom, 20).transition(.opacity) }
-        }
-        .toggleStyle(GlassToggleStyle())
-        .ignoresSafeArea()
-        .animation(Theme.spring, value: denied)
-    }
-}
-
-private struct TabBar: View {
-    @Binding var tab: Tab
-    @Namespace private var highlight
+    init(page: Page = .home) { _page = State(initialValue: page) }
 
     var body: some View {
-        HStack(spacing: 2) {
-            ForEach(Array(Tab.allCases.enumerated()), id: \.element) { i, t in
-                TabSegment(tab: t, selected: tab == t, highlight: highlight) {
-                    withAnimation(Theme.spring) { tab = t }
-                }
-                .keyboardShortcut(KeyEquivalent(Character("\(i + 1)")), modifiers: .command)
-                .help("\(t.title) (⌘\(i + 1))")
-            }
-        }
-        .padding(5)
-        .glass(corner: 26)
-    }
-}
-
-private struct TabSegment: View {
-    let tab: Tab, selected: Bool, highlight: Namespace.ID, action: () -> Void
-    @State private var hover = false
-
-    var body: some View {
-        Button(action: action) {
-            Label(tab.title, systemImage: tab.symbol)
-                .font(.system(size: 13, weight: .semibold, design: .rounded))
-                .foregroundStyle(.white.opacity(selected ? 1 : hover ? 0.85 : 0.6))
-                .padding(.horizontal, 16).padding(.vertical, 9)
-                .background {
-                    if selected {
-                        Capsule().fill(.white.opacity(0.2))
-                            .overlay(Capsule().strokeBorder(.white.opacity(0.2)))
-                            .matchedGeometryEffect(id: "selected", in: highlight)
-                    } else if hover {
-                        Capsule().fill(.white.opacity(0.07))
+        Group {
+            if fullscreen {
+                FullscreenCamera(playground: page == .playground) { setFullscreen(false) }
+            } else {
+                NavigationSplitView {
+                    List(selection: $page) {
+                        Section {
+                            row(.home)
+                        }
+                        Section("Control") {
+                            row(.cursor); row(.signs); row(.features)
+                        }
+                        Section("Practice") {
+                            row(.learn); row(.playground)
+                        }
+                        Section {
+                            row(.log)
+                        }
                     }
+                    .navigationSplitViewColumnWidth(min: 170, ideal: 190, max: 260)
+                } detail: {
+                    detail(page ?? .home)
+                        .navigationTitle((page ?? .home).title)
                 }
-                .contentShape(Capsule())
+            }
         }
-        .buttonStyle(PressScale())
-        .onHover { hover = $0 }
-        .animation(Theme.spring, value: hover)
-        .accessibilityAddTraits(selected ? .isSelected : [])
+        .frame(minWidth: 900, minHeight: 600)
+    }
+
+    private func row(_ p: Page) -> some View {
+        Label(p.title, systemImage: p.symbol).tag(p)
+    }
+
+    @ViewBuilder private func detail(_ p: Page) -> some View {
+        let full = { setFullscreen(true) }
+        switch p {
+        case .home: HomeView(page: $page, onFullscreen: full)
+        case .cursor: CursorView()
+        case .signs: HandSignsView()
+        case .features: FeaturesView()
+        case .learn: LearnView(page: $page)
+        case .playground: CameraStage { size in PlaygroundView(size: size, onFullscreen: full) }
+        case .log: LogView()
+        }
+    }
+
+    /// Fills the window with the camera and, unless the window already is, puts it in macOS fullscreen.
+    private func setFullscreen(_ on: Bool) {
+        if !snapshot, let w = NSApp.keyWindow {
+            let native = w.styleMask.contains(.fullScreen)
+            if on, !native { w.toggleFullScreen(nil); enteredNativeFullscreen = true }
+            if !on, enteredNativeFullscreen, native { w.toggleFullScreen(nil) }
+            if !on { enteredNativeFullscreen = false }
+        }
+        withAnimation(.easeInOut(duration: 0.2)) { fullscreen = on }
     }
 }
 
-private struct PressScale: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .scaleEffect(configuration.isPressed ? 0.94 : 1)
-            .animation(Theme.spring, value: configuration.isPressed)
+private struct FullscreenCamera: View {
+    let playground: Bool
+    let close: () -> Void
+
+    var body: some View {
+        CameraStage { size in
+            if playground { PlaygroundView(size: size, onFullscreen: nil) }
+        }
+        .overlay(alignment: .topLeading) { GestureBadge().padding(16) }
+        .overlay(alignment: .topTrailing) {
+            Button(action: close) {
+                Label("Exit Full Screen", systemImage: "arrow.down.right.and.arrow.up.left")
+            }
+            .keyboardShortcut(.cancelAction) // Esc
+            .controlSize(.large)
+            .padding(16)
+            .help("Exit full screen (Esc)")
+        }
+        .background(.black)
+        .ignoresSafeArea()
     }
 }
 
+/// One line about what Wave is doing, shared by Home and the menu bar.
+func waveStatus(_ t: HandTracker) -> String {
+    guard t.running else { return "Off. The camera is not in use." }
+    if t.authorized == false { return "Camera access is off. Allow it in System Settings." }
+    if t.cursorActive { return "Cursor mode is on" }
+    return t.handVisible ? "Seeing: \(t.gesture.title)" : "Looking for your hand…"
+}
+
+/// Menu-bar dropdown: compact, Control Center style. Everything else lives in the window.
 struct MenuPanel: View {
     @Environment(\.openWindow) private var openWindow
+    @Bindable private var signs = HandSigns.shared
 
     var body: some View {
         let t = HandTracker.shared
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 10) {
-                Image(systemName: "hand.wave.fill").font(.system(size: 18, weight: .semibold)).foregroundStyle(Theme.gradient)
-                Text("Wave").font(.system(size: 15, weight: .semibold, design: .rounded))
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 8) {
+                Image(systemName: t.running ? "hand.wave.fill" : "hand.wave")
+                    .font(.system(size: 15)).frame(width: 20)
+                Text("Wave").font(.headline)
                 Spacer()
-                Toggle("Wave on", isOn: Binding(get: { t.running }, set: { $0 ? t.start() : t.stop() }))
+                Toggle("Wave", isOn: Binding(get: { t.running }, set: { $0 ? t.start() : t.stop() }))
                     .toggleStyle(.switch).labelsHidden()
             }
-            Text(status(t)).font(.system(size: 12)).foregroundStyle(.secondary)
+            .padding(.horizontal, 14).padding(.top, 12)
+            Text(waveStatus(t))
+                .font(.callout).foregroundStyle(.secondary)
+                .padding(.horizontal, 14).padding(.top, 4).padding(.bottom, 10)
+                .fixedSize(horizontal: false, vertical: true)
             Divider()
-            HandSignsMenu()
-            Divider()
-            Button("Open Wave window…") {
-                openWindow(id: "main")
-                NSApp.activate()
+            HStack {
+                Text("Hand signs")
+                Spacer()
+                Toggle("Hand signs", isOn: $signs.enabled).toggleStyle(.switch).controlSize(.small).labelsHidden()
             }
-            Button("Show test log") { NSWorkspace.shared.open(SessionLog.url) }
-            Button("Quit Wave") { NSApp.terminate(nil) }.keyboardShortcut("q")
+            .padding(.horizontal, 14).padding(.vertical, 8)
+            Divider()
+            VStack(spacing: 0) {
+                MenuRow("Open Wave…") {
+                    openWindow(id: "main")
+                    NSApp.activate()
+                }
+                MenuRow("Show Log") { NSWorkspace.shared.open(SessionLog.url) }
+            }
+            .padding(5)
+            Divider()
+            MenuRow("Quit Wave", shortcut: "⌘Q") { NSApp.terminate(nil) }
+                .keyboardShortcut("q")
+                .padding(5)
         }
-        .buttonStyle(.plain)
-        .padding(16)
-        .frame(width: 300)
+        .frame(width: 280)
+    }
+}
+
+/// A full-width menu item with the native rounded hover highlight.
+private struct MenuRow: View {
+    let title: String, shortcut: String?, action: () -> Void
+    @State private var hover = false
+
+    init(_ title: String, shortcut: String? = nil, action: @escaping () -> Void) {
+        self.title = title; self.shortcut = shortcut; self.action = action
     }
 
-    private func status(_ t: HandTracker) -> String {
-        guard t.running else { return "Off. The camera is not in use." }
-        if t.authorized == false { return "Camera access is off. Allow it in System Settings." }
-        if t.cursorActive { return "Cursor mode" }
-        return t.handVisible ? "Seeing: \(t.gesture.title)" : "Looking for your hand…"
+    var body: some View {
+        Button(action: action) {
+            HStack {
+                Text(title)
+                Spacer()
+                if let shortcut { Text(shortcut).foregroundStyle(hover ? AnyShapeStyle(.white.opacity(0.8)) : AnyShapeStyle(.tertiary)) }
+            }
+            .foregroundStyle(hover ? AnyShapeStyle(.white) : AnyShapeStyle(.primary))
+            .padding(.horizontal, 9).padding(.vertical, 4)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(hover ? Theme.accent : .clear, in: RoundedRectangle(cornerRadius: 5, style: .continuous))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .onHover { hover = $0 }
     }
 }

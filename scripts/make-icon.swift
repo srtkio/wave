@@ -1,4 +1,4 @@
-// Draws the Wave app icon (blue-violet rounded square, white waving hand) into an .icns.
+// Draws the Wave app icon (solid system-blue rounded square, white waving hand) into an .icns.
 // Usage: swift scripts/make-icon.swift <out.icns>   (build.sh runs it)
 import AppKit
 
@@ -27,10 +27,14 @@ func png(_ px: Int) -> Data {
     path.fill()
     NSGraphicsContext.restoreGraphicsState()
 
-    NSGradient(colors: [NSColor(red: 0.33, green: 0.68, blue: 1.0, alpha: 1), NSColor(red: 0.6, green: 0.4, blue: 0.98, alpha: 1)])!
-        .draw(in: path, angle: -50)
-    // Soft top sheen, like light on glass.
-    NSGradient(colors: [.white.withAlphaComponent(0.22), .white.withAlphaComponent(0)])!.draw(in: path, angle: -90)
+    NSColor(red: 0, green: 0.478, blue: 1, alpha: 1).setFill() // system blue
+    path.fill()
+    // Subtle highlight fading out by the middle.
+    NSGraphicsContext.saveGraphicsState()
+    path.addClip()
+    NSGradient(colors: [.white.withAlphaComponent(0.16), .white.withAlphaComponent(0)])!
+        .draw(in: NSRect(x: tile.minX, y: tile.midY, width: tile.width, height: tile.height / 2), angle: -90)
+    NSGraphicsContext.restoreGraphicsState()
 
     let config = NSImage.SymbolConfiguration(pointSize: 430 * s, weight: .semibold)
         .applying(NSImage.SymbolConfiguration(paletteColors: [.white]))

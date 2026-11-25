@@ -85,7 +85,9 @@ final class PlaygroundWorld {
     }
 
     init() {
-        let a = NSColor(Theme.accent), b = NSColor(Theme.accent2), g = NSColor(Theme.success)
+        // Resolved to plain RGB: SceneKit materials and blending need concrete colours, not dynamic system ones.
+        let a = NSColor.controlAccentColor.usingColorSpace(.sRGB)!, b = NSColor.systemTeal.usingColorSpace(.sRGB)!,
+            g = NSColor.systemGreen.usingColorSpace(.sRGB)!
         let root = scene.rootNode
 
         let cam = SCNCamera()

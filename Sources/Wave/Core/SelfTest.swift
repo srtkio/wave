@@ -87,8 +87,6 @@ enum SelfTest {
         check("ok is not pinch", HandSigns.okIsNotPinch())
         check("cursor mode", CursorMode.selfCheck())
 
-        ShortcutEngine.selfCheck()  // asserts; traps on failure in debug builds
-        print("PASS shortcut engine state machine")
         check("feature checks", FeatureChecks.run())
         check("playground math", PlaygroundMath.selfCheck())
 

@@ -9,10 +9,26 @@ Raw evidence for a test session lives in `~/Library/Logs/Wave/session.log` (menu
 | # | Problem | Status |
 |---|---|---|
 | 8b | Face check is a convenience, not identity: Vision feature prints are general image embeddings (pose, light and background matter). Real recognition needs a face-embedding Core ML model (ArcFace/MobileFaceNet style) plus liveness | planned (step 4) |
-| 10 | Menu-bar dropdown: misaligned insets, gradient icon, "Thum…" truncation, L shows as a boxed-letter emoji, pickers look like plain text, no hover highlight, too tall | in progress (UI agent) |
-| 7 | UI: whole window is camera, everything on one screen, gradient "glow" look | in progress |
 
 ## Fixed
+
+### 2026-11-25: UI looked like "AI slop"; whole window was camera; menu dropdown was a mess
+- **Seen:**
+  - The blue→violet gradient glass, forced dark mode and a full-window camera with every control on top of it.
+  - The menu dropdown had misaligned insets, a gradient icon, "Thum…" truncation, L as a boxed letter (🇱), pickers with no affordance, no hover, and it was too tall.
+- **Fix:** native macOS UI that follows the system light/dark theme and accent colour.
+  - A `NavigationSplitView` sidebar: Home · Cursor · Hand Signs · Features · Learn · Playground · Log.
+  - Home has a 480pt camera card with a fullscreen button (Esc returns), "What Wave sees", the Wave switch, a permissions checklist (re-checked every 2s, never prompts) and recent activity.
+  - The menu dropdown is a compact 280pt Control-Center-style panel: switch, status, Hand signs switch, Open / Show Log / Quit rows with hover. Sign pickers moved to the window.
+  - The notch pill is pure black and white.
+  - The icon is a white hand on solid blue.
+  - L is shown as a plain "L".
+  - Removed the old Shortcuts tab and its engine (replaced by hand signs).
+- **Also:** face dots now show whenever a camera view is on screen (the face pass used to run only while a face feature was on).
+
+### 2026-11-25: App crashed on launch after the UI rework
+- **Cause:** removing `NSApp.appearance = darkAqua` meant nothing created `NSApplication.shared` before `NSApp.setActivationPolicy`, so `NSApp` was nil.
+- **Fix:** call `NSApplication.shared.setActivationPolicy(.regular)`. Found by launching the installed app during the rework.
 
 ### 2026-11-25: Commits were linked to the wrong GitHub account
 - **Seen:** GitHub showed another person's GitHub account as the author on every commit.

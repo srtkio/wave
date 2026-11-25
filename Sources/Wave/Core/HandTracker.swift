@@ -21,6 +21,8 @@ final class HandTracker: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate 
     /// Cursor mode owns the hand while true; hand signs and other gesture actions stay quiet.
     var cursorActive = false
     var detectFaces = false
+    /// Camera views on screen; while any are, faces are detected too so the overlay can draw face dots.
+    @ObservationIgnored var visibleCameras = 0
     var gesturesAllowed = true
 
     @ObservationIgnored let session = AVCaptureSession()
@@ -112,7 +114,7 @@ final class HandTracker: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate 
 
     func captureOutput(_ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
         guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
-        let wantFaces = detectFaces
+        let wantFaces = detectFaces || visibleCameras > 0
         let t = CMSampleBufferGetPresentationTimeStamp(sampleBuffer).seconds
         // shortcut: faces at 10 Hz; landmarks are the costly request and the face barely moves in 0.1 s.
         let readFace = wantFaces && (t - faceTime >= 0.1 || t < faceTime)

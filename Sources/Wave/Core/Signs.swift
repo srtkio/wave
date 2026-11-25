@@ -9,7 +9,7 @@ enum Sign: String, CaseIterable {
         case .rock: "🤘"
         case .callMe: "🤙"
         case .ok: "👌"
-        case .l: "🇱"
+        case .l: "L" // no hand emoji exists for L; the regional-indicator 🇱 rendered as a boxed placeholder
         case .thumbsUp: "👍"
         case .peace: "✌️"
         }

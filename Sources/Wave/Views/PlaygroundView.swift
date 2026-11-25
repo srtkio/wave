@@ -1,7 +1,9 @@
 import SwiftUI
 
+/// Shown inside a `CameraStage`: the 3D toy over the full-size camera.
 struct PlaygroundView: View {
     let size: CGSize
+    let onFullscreen: (() -> Void)?
     @State private var world = PlaygroundWorld()
     @State private var listener: UUID?
     @Environment(\.snapshot) private var snapshot
@@ -13,8 +15,9 @@ struct PlaygroundView: View {
                 PlaygroundSceneView(world: world, size: size)
                     .allowsHitTesting(false)
             }
-            PlaygroundHUD(world: world)
-                .stageColumn()
+            PlaygroundHUD(world: world, onFullscreen: onFullscreen)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
+                .padding(16)
         }
         .frame(width: size.width, height: size.height)
         .onAppear {
@@ -31,30 +34,36 @@ struct PlaygroundView: View {
 /// Own view so the hold ring's updates don't re-evaluate the scene layer.
 private struct PlaygroundHUD: View {
     let world: PlaygroundWorld
+    let onFullscreen: (() -> Void)?
 
     var body: some View {
         let hold = world.holdProgress
-        Panel(symbol: "cube.transparent", title: "Playground",
-              caption: "Pinch to grab and throw. Make a fist to blast. Hold an open palm to reset.") {
+        HStack(spacing: 14) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Playground").font(.headline)
+                Text("Pinch to grab and throw. Make a fist to blast. Hold an open palm to reset.")
+                    .font(.callout).foregroundStyle(.secondary)
+            }
             Button { world.respawn() } label: {
-                HStack(spacing: 8) {
+                HStack(spacing: 6) {
                     ZStack {
-                        Circle().stroke(.white.opacity(0.2), lineWidth: 2.5)
-                        Circle()
-                            .trim(from: 0, to: hold)
-                            .stroke(Theme.gradient, style: StrokeStyle(lineWidth: 2.5, lineCap: .round))
+                        Circle().stroke(.quaternary, lineWidth: 2)
+                        Circle().trim(from: 0, to: hold)
+                            .stroke(Theme.accent, style: StrokeStyle(lineWidth: 2, lineCap: .round))
                             .rotationEffect(.degrees(-90))
-                        Image(systemName: "arrow.counterclockwise")
-                            .font(.system(size: 10, weight: .bold))
                     }
-                    .frame(width: 22, height: 22)
-                    Text("Reset objects")
+                    .frame(width: 14, height: 14)
+                    Text("Reset")
                 }
             }
-            .buttonStyle(GlassButtonStyle())
             .help("Respawn the objects")
+            if let onFullscreen {
+                Button(action: onFullscreen) { Image(systemName: "arrow.up.left.and.arrow.down.right") }
+                    .help("Full screen")
+                    .accessibilityLabel("Full screen")
+            }
         }
-        .scaleEffect(hold > 0 ? 1.03 : 1)
-        .animation(Theme.spring, value: hold > 0)
+        .padding(.horizontal, 14).padding(.vertical, 10)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 }

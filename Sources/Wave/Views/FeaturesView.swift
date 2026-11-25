@@ -2,38 +2,18 @@ import SwiftUI
 
 struct FeaturesView: View {
     var body: some View {
-        ZStack {
-            BannerLayer()
-            Panel(symbol: "switch.2", title: "Features",
-                  caption: "Switch on what Wave does with your hands. They keep working on every tab.") {
-                VStack(spacing: 10) {
-                    ForEach(FeatureHub.shared.all, id: \.key) { FeatureCard(feature: $0) }
-                }
-                .panelScroll()
+        Form {
+            ForEach(FeatureHub.shared.all, id: \.key) { FeatureSection(feature: $0) }
+            Section {
+                Text("Features keep working when this window is closed. They pause while cursor mode is on.")
+                    .font(.callout).foregroundStyle(.secondary)
             }
-            .stageColumn()
         }
+        .formStyle(.grouped)
     }
 }
 
-/// Big countdown or progress over the camera while a feature asks for it.
-private struct BannerLayer: View {
-    var body: some View {
-        if let text = FeatureHub.shared.all.compactMap(\.banner).first {
-            Text(text)
-                .font(.system(size: 120, weight: .bold, design: .rounded))
-                .foregroundStyle(.white)
-                .shadow(color: Theme.accent.opacity(0.8), radius: 24)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .padding(.trailing, Theme.panelWidth + Theme.insets.trailing) // centred in the camera left of the panel
-                .id(text)
-                .transition(.scale.combined(with: .opacity))
-                .animation(Theme.spring, value: text)
-        }
-    }
-}
-
-private struct FeatureCard: View {
+private struct FeatureSection: View {
     let feature: FeatureBase
     @AppStorage private var on: Bool
 
@@ -43,40 +23,80 @@ private struct FeatureCard: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .top, spacing: 12) {
+        let face = feature as? FaceCheck
+        Section {
+            HStack(spacing: 12) {
                 Image(systemName: feature.symbol)
-                    .font(.system(size: 17, weight: .semibold))
-                    .foregroundStyle(on ? AnyShapeStyle(.black.opacity(0.8)) : AnyShapeStyle(.white.opacity(0.75)))
-                    .frame(width: 38, height: 38)
-                    .background(on ? AnyShapeStyle(Theme.gradient) : AnyShapeStyle(.white.opacity(0.12)),
-                                in: RoundedRectangle(cornerRadius: 11, style: .continuous))
+                    .font(.system(size: 16))
+                    .foregroundStyle(.white)
+                    .frame(width: 32, height: 32)
+                    .background(on ? Theme.accent : Color.secondary.opacity(0.6), in: RoundedRectangle(cornerRadius: 7, style: .continuous))
                 VStack(alignment: .leading, spacing: 2) {
-                    Theme.heading(feature.name)
-                    Theme.caption(feature.blurb).fixedSize(horizontal: false, vertical: true)
+                    Text(feature.name)
+                    Text(feature.blurb).font(.callout).foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
-                Spacer(minLength: 4)
-                Toggle(feature.name, isOn: $on).labelsHidden()
+                Spacer()
+                Toggle(feature.name, isOn: $on).toggleStyle(.switch).labelsHidden()
             }
-            HStack(spacing: 8) {
-                Circle()
-                    .fill(feature.live ? Theme.success : Color.gray.opacity(0.6))
-                    .frame(width: 8, height: 8)
-                    .shadow(color: feature.live ? Theme.success.opacity(0.9) : .clear, radius: 5)
-                Text(feature.status)
-                    .font(.system(size: 12, weight: .medium, design: .rounded).monospacedDigit())
-                    .foregroundStyle(.white.opacity(0.75))
-                    .lineLimit(2)
-                Spacer(minLength: 8)
-                if let label = feature.action {
-                    Button(label) { feature.act() }
-                        .buttonStyle(GlassButtonStyle(prominent: true))
-                        .disabled(feature.busy)
+            if feature.running {
+                HStack(spacing: 8) {
+                    Circle().fill(feature.live ? Color.green : Color.orange).frame(width: 8, height: 8)
+                    Text(feature.status).monospacedDigit().lineLimit(2)
+                    Spacer()
+                    if let label = feature.action {
+                        Button(label) { feature.act() }.disabled(feature.busy)
+                    }
                 }
+            }
+            if let face, face.running { FaceDetails(face: face) }
+        }
+        .onChange(of: on) { FeatureHub.shared.sync() }
+    }
+}
+
+/// Face check: a small camera (so you can see what it sees while registering) and the live match numbers.
+private struct FaceDetails: View {
+    let face: FaceCheck
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 20) {
+            // While registering, the countdown/progress and the prompt sit on the camera, where the user is looking.
+            CameraCard(width: 360) {
+                VStack(spacing: 6) {
+                    if let banner = face.banner {
+                        Text(banner).font(.system(size: 48, weight: .semibold).monospacedDigit())
+                    }
+                    if let prompt = face.registrationPrompt {
+                        Text(prompt).font(.headline)
+                            .padding(.horizontal, 10).padding(.vertical, 4)
+                            .background(.black.opacity(0.5), in: Capsule())
+                    }
+                }
+                .foregroundStyle(.white)
+                .shadow(color: .black.opacity(0.4), radius: 6)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+            VStack(alignment: .leading, spacing: 8) {
+                Grid(alignment: .leading, horizontalSpacing: 14, verticalSpacing: 6) {
+                    GridRow {
+                        Text("Nearest").foregroundStyle(.secondary)
+                        Text(face.lastDistance.map { String(format: "%.2f", $0) } ?? "–").monospacedDigit()
+                    }
+                    GridRow {
+                        Text("Limit").foregroundStyle(.secondary)
+                        Text(face.threshold > 0 ? String(format: "%.2f", face.threshold) : "–").monospacedDigit()
+                    }
+                    GridRow {
+                        Text("Gestures").foregroundStyle(.secondary)
+                        Text(face.matched ? "Unlocked" : "Paused").foregroundStyle(face.matched ? .green : .orange)
+                    }
+                }
+                Text("A match is a nearest distance at or under the limit. This is a convenience, not security.")
+                    .font(.callout).foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
-        .card(highlighted: on)
-        .animation(Theme.spring, value: on)
-        .onChange(of: on) { FeatureHub.shared.sync() }
+        .padding(.vertical, 4)
     }
 }

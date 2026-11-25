@@ -11,7 +11,7 @@
 ![On-device](https://img.shields.io/badge/Apple%20Vision-on--device-6AC7FF)
 ![No dependencies](https://img.shields.io/badge/dependencies-none-9B8CFF)
 
-<img src="docs/screenshots/8-notch-flash.png" width="560" alt="The notch HUD showing Play / Pause">
+<img src="docs/screenshots/notch-flash.png" width="560" alt="The notch HUD showing Play / Pause">
 
 </div>
 
@@ -64,56 +64,57 @@ Outside cursor mode, **hold** a sign for 0.8 s. A ring fills in the notch, then 
 | 👌 OK | Copy |
 | 🇱 L (thumb and index at a right angle) | Paste |
 
-Every sign can be reassigned in the menu bar: next or previous track, volume, copy, paste, Mission Control, screenshot, nothing, or any Apple Shortcut.
+Every sign can be reassigned on the **Hand Signs** page of the window: next or previous track, volume, copy, paste, Mission Control, screenshot, nothing, or any Apple Shortcut.
+
+## The window
+
+<img src="docs/screenshots/home-light.png" alt="Wave's Home page: the camera with the hand skeleton, the Wave switch, permissions and recent activity">
+
+A standard Mac window with a sidebar. It follows your light or dark appearance and your accent colour.
+
+- **Home**: the Wave switch, the camera at a modest size (with a full-screen button; Esc returns), what Wave sees right now (gesture, hands in use or ignored, hand sign, cursor), a Camera and Accessibility checklist with shortcuts to System Settings, and recent activity.
+- **Cursor**: how to start, move, click, double-click, right-click, drag, scroll and exit, with the exact timings, and whether cursor mode is on.
+- **Hand Signs**: the master switch and one action picker per sign; the sign you are holding is marked live.
+- **Features**: the toggles below. Face verification shows a small camera, the registration prompts and the live match numbers.
+- **Learn**: a card per gesture that lights up when you make it.
+- **Playground**: a 3D toy over the full-size camera: pinch and throw, make a fist to blast, hold an open palm to reset.
+- **Log**: the session log as it is written, with Copy and Reveal in Finder.
+
+| | |
+|---|---|
+| ![Cursor](docs/screenshots/cursor-dark.png) | ![Hand signs](docs/screenshots/signs-light.png) |
+| ![Features](docs/screenshots/features-light.png) | ![Log](docs/screenshots/log-dark.png) |
+
+Features, all off by default:
+
+- **Face verification**: gestures only work while the registered face is in front of the camera. A convenience, not security.
+- **Media controls**: hold a fist for 0.4 s to play or pause. (Volume lives on hand signs; pinch is reserved for cursor mode.)
+- **Meeting mute**: a finger on your lips toggles mute in Zoom or Meet in a browser.
+- **Air ink**: point one finger, thumb tucked, to draw on screen; an open palm clears. Strokes fade after 5 s.
+- **Face-touch alert**: a notification when your hand touches your face.
 
 ## Menu bar
 
-<img src="docs/screenshots/7-menu-panel.png" width="300" align="right" alt="The Wave menu bar panel">
+<img src="docs/screenshots/menu-light.png" width="280" align="right" alt="The Wave menu bar panel">
 
-The dropdown has:
-
-- the **Wave on/off switch**. The camera only runs while it is on.
-- a **status line**: "Looking for your hand…", "Seeing: Thumbs up", or "Cursor mode".
-- the **Hand signs** section, with a master switch and one action picker per sign.
-- **Open Wave window…** for the optional window below.
-- **Quit Wave**.
+A small dropdown: the **Wave** switch with a status line ("Looking for your hand…", "Seeing: Thumbs up", "Cursor mode is on"), a **Hand signs** switch, **Open Wave…**, **Show Log** and **Quit Wave**. The camera only runs while Wave is on.
 
 The notch HUD has three looks:
 
 | Flash | Sticky | Progress ring |
 |---|---|---|
-| <img src="docs/screenshots/8-notch-flash.png" width="260"> | <img src="docs/screenshots/9-notch-cursor.png" width="260"> | <img src="docs/screenshots/10-notch-progress.png" width="260"> |
+| <img src="docs/screenshots/notch-flash.png" width="260"> | <img src="docs/screenshots/notch-cursor.png" width="260"> | <img src="docs/screenshots/notch-progress.png" width="260"> |
 | A result for a moment, like "Play / Pause" | Stays while a mode is on, like "Cursor" | Fills while you hold a pinch or a sign |
 
 On Macs without a notch the pill grows out of the menu bar instead.
 
 <br clear="right">
 
-## Optional window
-
-Open it from the menu with **Open Wave window…**. Wave works fine without it.
-
-| | |
-|---|---|
-| ![Learn](docs/screenshots/1-learn.png) | ![Playground](docs/screenshots/2-playground.png) |
-| **Learn**: a card per gesture that lights up when you make it | **Playground**: pinch and throw a 3D cube, make a fist to blast everything away |
-| ![Shortcuts](docs/screenshots/3-shortcuts.png) | ![Features](docs/screenshots/4-features.png) |
-| **Shortcuts**: grab and drop, finger-count macros, clipboard history (off by default) | **Features**: the toggles below |
-
-Features, all off by default:
-
-- **Face check**: gestures pause when it does not see your face. A convenience, not security; real face recognition is planned.
-- **Media controls**: fist plays or pauses. (Volume lives on hand signs; pinch is reserved for cursor mode.)
-- **Meeting mute**: a finger on your lips toggles mute in Zoom or Meet in a browser.
-- **Air ink**: draw on screen with a pinch; strokes fade after 5 s.
-- **Face-touch alert**: a notification when your hand touches your face.
-
 ## Privacy
 
 - Camera frames are processed in memory by Apple Vision on your Mac and discarded.
 - The camera runs only while the Wave switch is on.
 - **Camera** is needed to see your hands. **Accessibility** is needed to move the cursor and send key presses; grant it in System Settings → Privacy & Security → Accessibility.
-- The clipboard history in the optional window stays in memory only.
 
 ## How it works
 
@@ -139,11 +140,13 @@ swift run Wave --selftest
 
 Runs the gesture rules, cursor mode, hold timers and feature logic against fake hands and fake time, with no camera. Prints `ALL PASS` when it is green.
 
-To re-render every screenshot in `docs/screenshots/` without a camera:
+To re-render every screenshot in `docs/screenshots/` (light and dark) without a camera:
 
 ```sh
-swift run Wave --snapshot docs/screenshots
+scripts/snapshot.sh
 ```
+
+It runs `Wave --snapshot` from a throwaway app bundle, because only an app opened through Finder or `open` can become active, and inactive windows draw switches grey.
 
 ## Roadmap
 
@@ -156,13 +159,14 @@ swift run Wave --snapshot docs/screenshots
 
 ```
 Sources/Wave/
-  WaveApp.swift          menu-bar app, menu panel, optional window
+  WaveApp.swift          app, sidebar window, menu-bar panel
   Core/                  hand tracking, gesture rules, signs, notch HUD, key/mouse output, theme
   Features/              cursor mode, hand signs, face check, media, meeting, air ink
-  Views/                 Learn, Playground, Shortcuts, Features tabs
+  Views/                 Home, Cursor, Hand Signs, Features, Learn, Playground, Log pages
   Snapshot.swift         --snapshot renderer
 build.sh                 builds and signs build/Wave.app
 scripts/make-icon.swift  draws the app icon
+scripts/snapshot.sh      renders docs/screenshots
 docs/                    GESTURES.md, icon, screenshots
 PLAN.md  CORE_API.md  CHANGELOG.md
 ```

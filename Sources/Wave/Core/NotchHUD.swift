@@ -80,20 +80,20 @@ struct NotchPill: View {
             HStack(spacing: 0) {
                 Image(systemName: hud.shown?.symbol ?? "hand.wave.fill")
                     .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(Theme.gradient)
+                    .foregroundStyle(.white)
                     .frame(width: NotchHUD.side)
                 Color.clear.frame(width: notch.width)
                 Group {
                     if let p = hud.progress {
                         ZStack {
-                            Circle().stroke(.white.opacity(0.2), lineWidth: 3)
-                            Circle().trim(from: 0, to: p).stroke(Theme.gradient, style: StrokeStyle(lineWidth: 3, lineCap: .round))
+                            Circle().stroke(.white.opacity(0.25), lineWidth: 3)
+                            Circle().trim(from: 0, to: p).stroke(.white, style: StrokeStyle(lineWidth: 3, lineCap: .round))
                                 .rotationEffect(.degrees(-90))
                         }
                         .frame(width: 18, height: 18)
                     } else {
                         Text(hud.shown?.text ?? "")
-                            .font(.system(size: 13, weight: .semibold, design: .rounded))
+                            .font(.system(size: 13, weight: .semibold))
                             .foregroundStyle(.white)
                             .lineLimit(1)
                             .contentTransition(.opacity)
