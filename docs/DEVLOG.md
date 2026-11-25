@@ -14,6 +14,17 @@ Raw evidence for a test session lives in `~/Library/Logs/Wave/session.log` (menu
 
 ## Fixed
 
+### 2026-11-25: Commits were linked to the wrong GitHub account
+- **Seen:** GitHub showed another person's GitHub account as the author on every commit.
+- **Cause:** when the repo was created (2026-11-23), its local git config was set to an email taken from the Claude account's context, which belongs to someone else instead of leaving the Mac's identity, `Sarthak Rai <trojan5779@gmail.com>` (srtkio). GitHub links commits to accounts by email.
+- **Fix:**
+  - Removed the repo-local `user.email`/`user.name`.
+  - Re-created all 33 commits with srtkio as author and committer. Trees, messages, dates and Claude co-author lines were unchanged; this was checked commit by commit.
+  - Force-pushed `main` and `build-mvp`. GitHub API: 33/33 commits now `author.login = srtkio`.
+  - The stale branch `worktree-airhand-setup` (5 old commits) must be deleted on GitHub.
+- **Visibility:** the repo is private and srtkio is the only collaborator, so the other account could never open it or its commits. Commits to a private repo you can't access don't appear on your contribution graph, and no notifications are sent for authored commits.
+- **Rule:** never set a repo-local git identity. Check `git log --format='%an <%ae>'` before the first push.
+
 ### 2026-11-25: Features cross-fired
 - **Seen or found in review:**
   - 👌 armed cursor mode at 0.6s and fired copy at 0.8s.
