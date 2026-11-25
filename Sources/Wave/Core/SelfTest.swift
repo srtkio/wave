@@ -42,7 +42,7 @@ enum SelfTest {
         }
 
         let all = [true, true, true, true], none = [false, false, false, false]
-        var pinch = hand(.out, all)
+        var pinch = hand(.out, [true, false, false, false])
         pinch.points[.indexTip] = CGPoint(x: 0.31, y: 0.61)
         var missing = hand(.out, all)
         missing.points[.wrist] = nil
@@ -82,6 +82,9 @@ enum SelfTest {
         let far = Hand(points: [.wrist: CGPoint(x: 0.1, y: 0.2), .middleMCP: CGPoint(x: 0.1, y: 0.15)], chirality: .left) // palm 0.05
         check("far-away hand is ignored", primaryHands([far]).isEmpty)
         check("closest hand comes first", primaryHands([far, near]).count == 1 && palmSize(primaryHands([far, near])[0]) == palmSize(near))
+
+        check("hand signs", HandSigns.selfCheck())
+        check("ok is not pinch", HandSigns.okIsNotPinch())
 
         ShortcutEngine.selfCheck()  // asserts; traps on failure in debug builds
         print("PASS shortcut engine state machine")

@@ -32,8 +32,9 @@ func classify(_ h: Hand) -> Gesture {
     guard keyJoints.allSatisfy({ p[$0] != nil }) else { return .none }
     let palm = dist(p[.wrist]!, p[.middleMCP]!)
     guard palm > 0 else { return .none }
-    if dist(p[.thumbTip]!, p[.indexTip]!) < 0.3 * palm { return .pinch }
     let e = extendedFingers(h)
+    // Thumb on index with the other three fingers up is the 👌 sign, not a pinch.
+    if dist(p[.thumbTip]!, p[.indexTip]!) < 0.3 * palm, !(e[2] && e[3] && e[4]) { return .pinch }
     switch Array(e[1...]) {
     case [true, true, true, true]: return .open
     case [false, false, false, false]: return e[0] && p[.thumbTip]!.y < p[.indexMCP]!.y ? .thumbsUp : .fist

@@ -19,6 +19,7 @@ struct WaveApp: App {
     init() {
         ShortcutEngine.shared.start()
         FeatureHub.shared.start()
+        HandSigns.shared.start()
     }
 
     var body: some Scene {
@@ -151,6 +152,8 @@ private struct MenuPanel: View {
                     .toggleStyle(.switch).labelsHidden()
             }
             Text(status(t)).font(.system(size: 12)).foregroundStyle(.secondary)
+            Divider()
+            HandSignsMenu()
             Divider()
             Button("Open Wave window…") {
                 openWindow(id: "main")
