@@ -41,7 +41,7 @@ final class ShortcutEngine {
     func start() {
         guard listener == nil else { return }
         listener = HandTracker.shared.onFrame { [weak self] f, g in
-            guard let self else { return }
+            guard let self, !HandTracker.shared.cursorActive else { return }
             let t = Date.timeIntervalSinceReferenceDate
             guard let hand = f.hands.first else { return self.step(t: t, gesture: .none, fingers: 0, x: nil) }
             self.step(t: t, gesture: g, fingers: fingerCount(hand),

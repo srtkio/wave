@@ -34,7 +34,9 @@ class FeatureBase {
     /// `always` = also while gestures are blocked (only the face check needs that).
     final func listen(always: Bool = false, _ f: @escaping (HandFrame, Gesture) -> Void) {
         let t = HandTracker.shared
-        ids.append(always ? t.onAnyFrame(f) : t.onFrame(f))
+        // Cursor mode owns the hand; features hear nothing until it ends (a fist mid-drag must not hit play/pause).
+        let gated: (HandFrame, Gesture) -> Void = { frame, g in if !t.cursorActive { f(frame, g) } }
+        ids.append(always ? t.onAnyFrame(gated) : t.onFrame(gated))
     }
 
     /// Show a result briefly, then fall back to the idle line.

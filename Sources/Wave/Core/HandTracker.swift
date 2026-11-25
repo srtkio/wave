@@ -57,6 +57,7 @@ final class HandTracker: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate 
     func stop() {
         guard running else { return }
         running = false
+        CursorMode.shared.stop()
         queue.async {
             self.session.stopRunning()
             self.stabilizer = GestureStabilizer()

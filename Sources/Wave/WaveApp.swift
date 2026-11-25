@@ -20,6 +20,7 @@ struct WaveApp: App {
         ShortcutEngine.shared.start()
         FeatureHub.shared.start()
         HandSigns.shared.start()
+        CursorMode.shared.start()
     }
 
     var body: some Scene {
