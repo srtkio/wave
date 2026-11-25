@@ -2,13 +2,13 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key>CFBundleIdentifier</key>
-	<string>com.srtkio.wave</string>
-	<key>CFBundleName</key>
+	<key>CFBundleExecutable</key>
 	<string>Wave</string>
 	<key>CFBundleIconFile</key>
 	<string>AppIcon</string>
-	<key>CFBundleExecutable</key>
+	<key>CFBundleIdentifier</key>
+	<string>com.srtkio.wave</string>
+	<key>CFBundleName</key>
 	<string>Wave</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
@@ -18,6 +18,8 @@
 	<string>1</string>
 	<key>LSMinimumSystemVersion</key>
 	<string>15.0</string>
+	<key>LSUIElement</key>
+	<true/>
 	<key>NSCameraUsageDescription</key>
 	<string>Wave uses the camera to see your hand gestures. Video never leaves your Mac.</string>
 	<key>NSHighResolutionCapable</key>

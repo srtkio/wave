@@ -10,21 +10,33 @@ struct WaveMain {
         if let i = CommandLine.arguments.firstIndex(of: "--snapshot"), i + 1 < CommandLine.arguments.count {
             MainActor.assumeIsolated { Snapshot.run(to: CommandLine.arguments[i + 1]) }
         }
-        NSApp.setActivationPolicy(.regular)
+        NSApp.setActivationPolicy(.accessory) // menu-bar app: no Dock icon, no window at launch
         WaveApp.main()
     }
 }
 
 struct WaveApp: App {
+    init() {
+        ShortcutEngine.shared.start()
+        FeatureHub.shared.start()
+    }
+
     var body: some Scene {
-        WindowGroup("Wave", id: "main") {
+        // Optional window for Learn/Playground/etc; everything else runs from the menu bar.
+        Window("Wave", id: "main") {
             WaveRoot()
                 .frame(minWidth: 960, minHeight: 640)
-                .onAppear { HandTracker.shared.start(); ShortcutEngine.shared.start(); FeatureHub.shared.start() }
+                .onAppear { HandTracker.shared.start() } // the window needs the camera
         }
         .windowStyle(.hiddenTitleBar)
         .defaultSize(width: 1280, height: 800)
-        MenuBarExtra("Wave", systemImage: "hand.wave") { MenuContent() }
+        .defaultLaunchBehavior(.suppressed)
+        MenuBarExtra {
+            MenuPanel()
+        } label: {
+            Image(systemName: HandTracker.shared.running ? "hand.wave.fill" : "hand.wave")
+        }
+        .menuBarExtraStyle(.window)
     }
 }
 
@@ -125,20 +137,36 @@ private struct PressScale: ButtonStyle {
     }
 }
 
-private struct MenuContent: View {
+private struct MenuPanel: View {
     @Environment(\.openWindow) private var openWindow
 
     var body: some View {
-        Button("Show Window") {
-            // openWindow on a WindowGroup always makes a new window, so reuse an open one.
-            if let w = NSApp.windows.first(where: { $0.canBecomeMain && $0.isVisible }) {
-                w.makeKeyAndOrderFront(nil)
-            } else {
-                openWindow(id: "main")
+        let t = HandTracker.shared
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 10) {
+                Image(systemName: "hand.wave.fill").font(.system(size: 18, weight: .semibold)).foregroundStyle(Theme.gradient)
+                Text("Wave").font(.system(size: 15, weight: .semibold, design: .rounded))
+                Spacer()
+                Toggle("Wave on", isOn: Binding(get: { t.running }, set: { $0 ? t.start() : t.stop() }))
+                    .toggleStyle(.switch).labelsHidden()
             }
-            NSApp.activate()
+            Text(status(t)).font(.system(size: 12)).foregroundStyle(.secondary)
+            Divider()
+            Button("Open Wave window…") {
+                openWindow(id: "main")
+                NSApp.activate()
+            }
+            Button("Quit Wave") { NSApp.terminate(nil) }.keyboardShortcut("q")
         }
-        Divider()
-        Button("Quit") { NSApp.terminate(nil) }.keyboardShortcut("q")
+        .buttonStyle(.plain)
+        .padding(16)
+        .frame(width: 300)
+    }
+
+    private func status(_ t: HandTracker) -> String {
+        guard t.running else { return "Off. The camera is not in use." }
+        if t.authorized == false { return "Camera access is off. Allow it in System Settings." }
+        if t.cursorActive { return "Cursor mode" }
+        return t.handVisible ? "Seeing: \(t.gesture.title)" : "Looking for your hand…"
     }
 }
