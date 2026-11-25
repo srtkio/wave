@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Test log: while Wave is on it writes what it sees and does (gestures, hands kept or ignored, signs, cursor events, notch messages) to `~/Library/Logs/Wave/session.log`. Text only, no images. Open it from the menu bar with **Show test log**.
+- Mission Control sign now opens Mission Control directly, so it works whatever your keyboard shortcut is.
+- Media controls: removed pinch-and-slide volume, which clashed with the cursor-mode pinch. Put volume up/down on a hand sign instead.
+
 ## v0.2 (2026-11-25): menu-bar redesign
 
 - Wave is now a menu-bar app: no Dock icon and no window at launch. The dropdown has the Wave on/off switch (the camera only runs while on), a status line, the Hand signs section, "Open Wave window…" and Quit.

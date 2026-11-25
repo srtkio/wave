@@ -103,7 +103,7 @@ Open it from the menu with **Open Wave window…**. Wave works fine without it.
 Features, all off by default:
 
 - **Face check**: gestures pause when it does not see your face. A convenience, not security; real face recognition is planned.
-- **Media controls**: fist plays or pauses; pinch and slide up or down for volume.
+- **Media controls**: fist plays or pauses. (Volume lives on hand signs; pinch is reserved for cursor mode.)
 - **Meeting mute**: a finger on your lips toggles mute in Zoom or Meet in a browser.
 - **Air ink**: draw on screen with a pinch; strokes fade after 5 s.
 - **Face-touch alert**: a notification when your hand touches your face.
