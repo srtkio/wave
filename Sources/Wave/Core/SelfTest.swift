@@ -78,6 +78,11 @@ enum SelfTest {
         check("learn: unnamed 3 lights the count", litMoves(.none, fingers: 3) == ["n3"])
         check("learn: no hand lights nothing", litMoves(.none, fingers: 0).isEmpty)
 
+        let near = hand(.out, [true, true, true, true])                   // palm 0.2
+        let far = Hand(points: [.wrist: CGPoint(x: 0.1, y: 0.2), .middleMCP: CGPoint(x: 0.1, y: 0.15)], chirality: .left) // palm 0.05
+        check("far-away hand is ignored", primaryHands([far]).isEmpty)
+        check("closest hand comes first", primaryHands([far, near]).count == 1 && palmSize(primaryHands([far, near])[0]) == palmSize(near))
+
         ShortcutEngine.selfCheck()  // asserts; traps on failure in debug builds
         print("PASS shortcut engine state machine")
         check("feature checks", FeatureChecks.run())

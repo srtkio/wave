@@ -34,7 +34,7 @@ final class ShortcutEngine {
     @ObservationIgnored private var anchorX: CGFloat = 0
 
     init() {
-        UserDefaults.standard.register(defaults: [Self.grabKey: true, Self.macrosKey: true, Self.clipKey: true])
+        UserDefaults.standard.register(defaults: [Self.grabKey: false, Self.macrosKey: false, Self.clipKey: false]) // off until hand signs replace them
     }
 
     /// Safe to call repeatedly (app launch and ShortcutsView both do).
@@ -130,8 +130,14 @@ final class ShortcutEngine {
     @discardableResult static func selfCheck() -> Bool {
         let d = UserDefaults.standard
         let saved = (1...5).map { d.string(forKey: macroKey($0)) }
-        defer { for (i, v) in saved.enumerated() { d.set(v, forKey: macroKey(i + 1)) } }
+        let toggles = [grabKey, macrosKey, clipKey]
+        let savedToggles = toggles.map { d.object(forKey: $0) }
+        defer {
+            for (i, v) in saved.enumerated() { d.set(v, forKey: macroKey(i + 1)) }
+            for (k, v) in zip(toggles, savedToggles) { d.set(v, forKey: k) }
+        }
         d.set("Focus", forKey: macroKey(2))
+        for k in toggles { d.set(true, forKey: k) }
         let e = ShortcutEngine()
         var log: [Act] = []
         e.perform = { log.append($0) }
