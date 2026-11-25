@@ -160,6 +160,7 @@ struct MenuPanel: View {
                 openWindow(id: "main")
                 NSApp.activate()
             }
+            Button("Show test log") { NSWorkspace.shared.open(SessionLog.url) }
             Button("Quit Wave") { NSApp.terminate(nil) }.keyboardShortcut("q")
         }
         .buttonStyle(.plain)

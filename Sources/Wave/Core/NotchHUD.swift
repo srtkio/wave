@@ -24,6 +24,7 @@ final class NotchHUD {
 
     func flash(_ text: String, symbol: String = "hand.wave.fill", seconds: Double = 1.4) {
         ensurePanel()
+        SessionLog.log("notch \"\(text)\"")
         flashID += 1
         let id = flashID
         withAnimation(Theme.spring) { flashItem = (text, symbol) }
@@ -35,6 +36,7 @@ final class NotchHUD {
 
     func setSticky(_ text: String?, symbol: String = "hand.wave.fill") {
         ensurePanel()
+        SessionLog.log("notch sticky \(text.map { "\"\($0)\"" } ?? "off")")
         withAnimation(Theme.spring) { sticky = text.map { ($0, symbol) } }
     }
 

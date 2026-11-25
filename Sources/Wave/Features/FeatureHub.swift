@@ -107,12 +107,6 @@ struct Dwell {
     }
 }
 
-/// Whole volume steps moved up (+) or down (-) since `anchor`, one per `step` of vertical travel.
-/// y grows downward, so moving the hand up lowers y. Clamped so a tracking glitch can't blast the volume.
-func volumeSteps(anchor: CGFloat, y: CGFloat, step: CGFloat = 0.05, maxSteps: Int = 4) -> Int {
-    max(-maxSteps, min(maxSteps, Int(((anchor - y) / step).rounded(.towardZero))))
-}
-
 /// Lower third of the face rect: where the mouth is.
 func mouthZone(_ face: CGRect) -> CGRect {
     CGRect(x: face.minX, y: face.minY + face.height * 2 / 3, width: face.width, height: face.height / 3)
@@ -148,11 +142,6 @@ enum FeatureChecks {
         check("dwell fires once per hold", !d.held(true, at: 3, for: 0.5))
         check("dwell rearms after release", !d.held(false, at: 4, for: 0.5) && !d.held(true, at: 5, for: 0.5) && d.held(true, at: 5.6, for: 0.5))
 
-        check("volume: no move", volumeSteps(anchor: 0.5, y: 0.5) == 0)
-        check("volume: under one step", volumeSteps(anchor: 0.5, y: 0.47) == 0)
-        check("volume: up 2 steps", volumeSteps(anchor: 0.5, y: 0.39) == 2)
-        check("volume: down 1 step", volumeSteps(anchor: 0.5, y: 0.56) == -1)
-        check("volume: clamped", volumeSteps(anchor: 0.9, y: 0.1) == 4)
 
         let face = CGRect(x: 0.4, y: 0.3, width: 0.2, height: 0.3)
         check("mouth zone inside", mouthZone(face).contains(CGPoint(x: 0.5, y: 0.55)))

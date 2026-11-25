@@ -34,11 +34,14 @@ final class HandTracker: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate 
     @ObservationIgnored private var stabilizer = GestureStabilizer() // camera queue only
     @ObservationIgnored private var configured = false // camera queue only
     @ObservationIgnored private var listeners: [UUID: (HandFrame, Gesture) -> Void] = [:]
+    @ObservationIgnored private var seenCount = 0 // main only, for the session log
+    @ObservationIgnored private var keptCount = 0
     @ObservationIgnored private var anyListeners: [UUID: (HandFrame, Gesture) -> Void] = [:]
 
     func start() {
         guard !running else { return }
         running = true
+        SessionLog.begin()
         NotchHUD.shared.flash("Wave on")
         AVCaptureDevice.requestAccess(for: .video) { ok in
             guard ok else {
@@ -57,6 +60,7 @@ final class HandTracker: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate 
     func stop() {
         guard running else { return }
         running = false
+        SessionLog.log("Wave off")
         CursorMode.shared.stop()
         queue.async {
             self.session.stopRunning()
@@ -108,13 +112,14 @@ final class HandTracker: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate 
         let handler = VNImageRequestHandler(cvPixelBuffer: pixelBuffer, orientation: .up)
         try? handler.perform(wantFaces ? [handRequest, faceRequest] : [handRequest])
 
-        let hands = primaryHands((handRequest.results ?? []).map { obs -> Hand in
+        let all = (handRequest.results ?? []).map { obs -> Hand in
             var points: [Joint: CGPoint] = [:]
             for (joint, p) in (try? obs.recognizedPoints(.all)) ?? [:] where p.confidence > 0.3 {
                 points[joint] = CGPoint(x: 1 - p.location.x, y: 1 - p.location.y)
             }
             return Hand(points: points, chirality: obs.chirality)
-        })
+        }
+        let hands = primaryHands(all)
         var face: CGRect?
         if wantFaces, let b = faceRequest.results?.first?.boundingBox {
             face = CGRect(x: 1 - b.maxX, y: 1 - b.maxY, width: b.width, height: b.height)
@@ -129,8 +134,14 @@ final class HandTracker: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate 
             self.frame = frame
             // Only write on change so views reading these don't re-render every frame.
             guard self.running else { return } // a frame that was in flight when stop() ran
+            if all.count != self.seenCount || hands.count != self.keptCount {
+                self.seenCount = all.count; self.keptCount = hands.count
+                let palms = all.map { String(format: "%.3f", palmSize($0)) }.joined(separator: ",")
+                SessionLog.log("hands seen=\(all.count) kept=\(hands.count) palms=[\(palms)] (min \(minPalmSize))")
+            }
             if self.gesture != gesture {
                 self.gesture = gesture
+                SessionLog.log("gesture \(gesture.rawValue) fingers=\(fingers)\(hands.first.map { String(format: " palm=%.3f", palmSize($0)) } ?? "")")
                 if gesture != .none, NotchHUD.shared.sticky == nil { NotchHUD.shared.flash(gesture.title) }
             }
             if self.fingers != fingers { self.fingers = fingers }

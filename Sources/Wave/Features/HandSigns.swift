@@ -1,4 +1,4 @@
-import CoreGraphics
+import AppKit
 import Foundation
 import Observation
 
@@ -47,7 +47,8 @@ enum SignAction: Hashable {
         case .previousTrack: Output.mediaKey(Output.NX_KEYTYPE_PREVIOUS)
         case .copy: Output.copy()
         case .paste: Output.paste()
-        case .missionControl: Output.key(126, flags: .maskControl)            // Ctrl+Up
+        // Opening the app works regardless of the user's Ctrl+Up setting and needs no Accessibility.
+        case .missionControl: NSWorkspace.shared.open(URL(fileURLWithPath: "/System/Applications/Mission Control.app"))
         case .screenshot: Output.key(21, flags: [.maskCommand, .maskShift])   // Cmd+Shift+4
         }
     }
@@ -124,7 +125,10 @@ final class HandSigns {
         // Cursor mode owns the hand (its peace sign is scroll); the master switch also lands here.
         let off = !enabled || HandTracker.shared.cursorActive
         let s = off ? nil : f.hands.first.flatMap(sign)
-        if held != s { held = s }
+        if held != s {
+            held = s
+            SessionLog.log("sign \(s.map { "\($0.emoji) \($0.rawValue)" } ?? "none")")
+        }
         let r = hold.step(t: f.time, sign: s, off: off)
         if let fired = r.fire {
             let a = actions[fired] ?? SignAction.none

@@ -1,19 +1,18 @@
 import AppKit
 import UserNotifications
 
-/// Fist = play/pause. Pinch and slide up/down = volume.
+/// Fist = play/pause. (Pinch is reserved for cursor mode; volume lives in hand signs.)
 final class MediaControls: FeatureBase {
     private var fist = Edge(), cooldown = Cooldown()
-    private var anchor: CGFloat?
 
     init() {
         super.init(key: "feature.media", symbol: "play.circle", name: "Media controls",
-                   blurb: "Fist plays or pauses. Pinch and slide up or down for volume.")
+                   blurb: "Fist plays or pauses. Set volume up/down on a hand sign.")
     }
 
     override func begin() {
         Output.ensureAccessibility()
-        fist = Edge(); cooldown = Cooldown(); anchor = nil
+        fist = Edge(); cooldown = Cooldown()
         listen { [weak self] f, g in self?.tick(f, g) }
     }
 
@@ -22,13 +21,6 @@ final class MediaControls: FeatureBase {
             Output.mediaKey(Output.NX_KEYTYPE_PLAY)
             flash("Play / pause ✓")
         }
-        guard g == .pinch, let y = f.hands.first?.points[.indexTip]?.y else { anchor = nil; return }
-        let a = anchor ?? y
-        let n = volumeSteps(anchor: a, y: y)
-        anchor = a - CGFloat(n) * 0.05
-        guard n != 0 else { return }
-        for _ in 0..<abs(n) { Output.mediaKey(n > 0 ? Output.NX_KEYTYPE_SOUND_UP : Output.NX_KEYTYPE_SOUND_DOWN) }
-        flash(n > 0 ? "Volume up" : "Volume down")
     }
 }
 

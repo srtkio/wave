@@ -45,6 +45,10 @@ final class CursorMode {
     }
 
     private func apply(_ e: CursorEvent) {
+        switch e {
+        case .move, .progress: break
+        default: SessionLog.log("cursor \(e)")
+        }
         let hud = NotchHUD.shared
         switch e {
         case .enter:
