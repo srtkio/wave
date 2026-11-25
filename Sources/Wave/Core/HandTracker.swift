@@ -18,6 +18,8 @@ final class HandTracker: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate 
     var authorized: Bool?
     /// Wave is on: the camera runs and gestures are read. Toggled from the menu bar.
     var running = false
+    /// Cursor mode owns the hand while true; hand signs and other gesture actions stay quiet.
+    var cursorActive = false
     var detectFaces = false
     var gesturesAllowed = true
 
