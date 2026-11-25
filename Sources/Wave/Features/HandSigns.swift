@@ -118,13 +118,16 @@ final class HandSigns {
 
     func start() {
         guard listener == nil else { return }
-        listener = HandTracker.shared.onFrame { [weak self] f, _ in self?.handle(f) }
+        // onAnyFrame: while the face check blocks gestures we still feed it, so a half-filled hold is dropped.
+        listener = HandTracker.shared.onAnyFrame { [weak self] f, _ in self?.handle(f) }
     }
 
     private func handle(_ f: HandFrame) {
-        // Cursor mode owns the hand (its peace sign is scroll); the master switch also lands here.
-        let off = !enabled || HandTracker.shared.cursorActive
-        let s = off ? nil : f.hands.first.flatMap(sign)
+        // The Arbiter decides: cursor mode owns the hand (its peace sign is scroll), face check failing blocks everything,
+        // and a feature mid-stroke keeps it (then s is nil and the hold lapses after its grace). The master switch lands here too.
+        let lane = Arbiter.lane(f)
+        let off = !enabled || lane == nil || lane == .cursor
+        let s = lane == .sign ? f.hands.first.flatMap(sign) : nil
         if held != s {
             held = s
             SessionLog.log("sign \(s.map { "\($0.emoji) \($0.rawValue)" } ?? "none")")

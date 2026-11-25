@@ -8,11 +8,40 @@ Raw evidence for a test session lives in `~/Library/Logs/Wave/session.log` (menu
 
 | # | Problem | Status |
 |---|---|---|
-| 9 | Features could cross-fire (fist used by both media play/pause and old grab/drop; pinch used by air ink and cursor arming) | in progress |
-| 8 | Face check unreliable; no face dots; no way to see why it matched or not | in progress |
+| 8b | Face check is a convenience, not identity: Vision feature prints are general image embeddings (pose, light and background matter). Real recognition needs a face-embedding Core ML model (ArcFace/MobileFaceNet style) plus liveness | planned (step 4) |
+| 10 | Menu-bar dropdown: misaligned insets, gradient icon, "Thum…" truncation, L shows as a boxed-letter emoji, pickers look like plain text, no hover highlight, too tall | in progress (UI agent) |
 | 7 | UI: whole window is camera, everything on one screen, gradient "glow" look | in progress |
 
 ## Fixed
+
+### 2026-11-25: Features cross-fired
+- **Seen or found in review:**
+  - 👌 armed cursor mode at 0.6s and fired copy at 0.8s.
+  - Air ink and cursor arming both used pinch.
+  - Pointing at your lips drew ink and muted the meeting at once.
+  - A fist on your chin fired media and the face-touch alert.
+  - Closing your hand on the way to 👍 played/paused, then 👍 toggled it back.
+- **Fix:** one rule decides who owns the hand, in `Features/Arbiter.swift`:
+  1. Face check failing → nobody acts.
+  2. Cursor mode active or arming → only cursor.
+  3. A bound sign pose → only hand signs (unless air ink is mid-stroke).
+  4. Otherwise features, split by where the hand is: index on lips → meeting mute; hand on face → face-touch alert; elsewhere → media (fist held 0.4s) and air ink (now **point** to draw, open palm clears).
+  - Cursor arming ignores the 👌 pose.
+  - Lane changes go to the session log (`arbiter lane …`).
+- **Check:** `arbiter crossfire matrix` self-test, 10 poses × 5 states, at most one system acting in every cell.
+- **Watch for:** a casual pinch with the other three fingers loosely open won't arm cursor mode, so curl one. A point with the thumb out is the L sign (paste), so tuck the thumb to draw.
+
+### 2026-11-25: Face check reworked and debuggable
+- **Before:** 5 raw crops, a guessed threshold, and no visibility into why it matched or not.
+- **Now:**
+  - Landmarks (`VNDetectFaceLandmarksRequest`, 10 Hz, largest face) are drawn as dots.
+  - The crop is a square around the landmarks, levelled by the eye-line roll, grayscale, 224×224 and normalised.
+  - Registration takes 8 samples (straight / left / right / up) and rejects frames with zero or several faces.
+  - Threshold = your own max spread × 1.3 + 0.1.
+  - Unlocks on the first match and locks after 2 misses.
+  - Every check is logged: `face check: nearest=… threshold=… -> match/no match`.
+- **Note:** old registrations aren't loaded, so register again (new file `face2.prints`).
+- **Check:** `face check maths` self-test (threshold, hysteresis, crop geometry, roll; a flipped roll sign fails it).
 
 ### 2026-11-25: Accessibility popup kept coming back; cursor didn't move
 - **Seen:** "Wave.app would like to control this Mac" on every launch. Session log showed cursor mode working (`cursor enter`, `leftDown`, `leftClick(1)`, `rightClick`) but every enter also flashed `Allow Accessibility`, so no mouse events were posted.

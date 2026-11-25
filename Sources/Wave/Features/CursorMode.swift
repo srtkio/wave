@@ -19,7 +19,7 @@ final class CursorMode {
         let tracker = HandTracker.shared
         // onAnyFrame, not onFrame: while gestures are blocked we still feed "no hand" so a held drag gets released.
         listener = tracker.onAnyFrame { [weak self] frame, _ in
-            self?.tick(tracker.gesturesAllowed ? frame.hands : [])
+            self?.tick(Arbiter.faceOK ? frame.hands : [])
         }
         // Turning Wave off stops frames entirely; keep time moving so held buttons release and the mode times out.
         Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in

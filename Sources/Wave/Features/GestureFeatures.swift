@@ -1,23 +1,26 @@
 import AppKit
 import UserNotifications
 
-/// Fist = play/pause. (Pinch is reserved for cursor mode; volume lives in hand signs.)
+/// Hold a fist = play/pause. (Pinch is reserved for cursor mode; volume lives in hand signs.)
+/// Held, not flicked: closing the hand on the way to 👍 / 🤙 / 👌 passes through a fist for a moment.
 final class MediaControls: FeatureBase {
-    private var fist = Edge(), cooldown = Cooldown()
+    // shortcut: 0.4 s is longer than the fist you pass through on the way to a sign, shorter than the 0.8 s sign hold.
+    private var fist = Dwell(), cooldown = Cooldown()
 
     init() {
         super.init(key: "feature.media", symbol: "play.circle", name: "Media controls",
-                   blurb: "Fist plays or pauses. Set volume up/down on a hand sign.")
+                   blurb: "Hold a fist to play or pause. Set volume up/down on a hand sign.")
     }
 
     override func begin() {
         Output.ensureAccessibility()
-        fist = Edge(); cooldown = Cooldown()
+        fist = Dwell(); cooldown = Cooldown()
         listen { [weak self] f, g in self?.tick(f, g) }
     }
 
     private func tick(_ f: HandFrame, _ g: Gesture) {
-        if fist.rose(g == .fist), cooldown.fire(at: f.time, gap: 1) {
+        // Not while the hand is on the face: that belongs to face-touch (see Arbiter.zone).
+        if fist.held(g == .fist && Arbiter.zone(f) == .none, at: f.time, for: 0.4), cooldown.fire(at: f.time, gap: 1) {
             Output.mediaKey(Output.NX_KEYTYPE_PLAY)
             flash("Play / pause ✓")
         }
@@ -46,10 +49,7 @@ final class MeetingMute: FeatureBase {
     }
 
     private func tick(_ f: HandFrame) {
-        guard let face = f.face else { dwell = Dwell(); return }
-        let zone = mouthZone(face)
-        let near = f.hands.contains { $0.points[.indexTip].map(zone.contains) ?? false }
-        guard dwell.held(near, at: f.time, for: 0.5), cooldown.fire(at: f.time, gap: 2) else { return }
+        guard dwell.held(Arbiter.zone(f) == .lips, at: f.time, for: 0.5), cooldown.fire(at: f.time, gap: 2) else { return }
         switch NSWorkspace.shared.frontmostApplication?.bundleIdentifier {
         case "us.zoom.xos": Output.key(0, flags: [.maskCommand, .maskShift]) // ⌘⇧A
         case let id? where Self.browsers.contains(id): Output.key(2, flags: .maskCommand) // ⌘D (Meet)
@@ -87,9 +87,7 @@ final class FaceTouch: FeatureBase {
     }
 
     private func tick(_ f: HandFrame) {
-        guard let face = f.face else { dwell = Dwell(); return }
-        let inside = f.hands.reduce(0) { $0 + $1.points.values.filter(face.contains).count }
-        guard dwell.held(inside >= 3, at: f.time, for: 2), rate.fire(at: f.time, gap: 60) else { return }
+        guard dwell.held(Arbiter.zone(f) == .onFace, at: f.time, for: 2), rate.fire(at: f.time, gap: 60) else { return }
         let c = UNMutableNotificationContent()
         c.title = "Hands off your face 🙂"
         UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: UUID().uuidString, content: c, trigger: nil))

@@ -54,6 +54,11 @@ struct CursorCore {
     private var scrollCarry = CGPoint.zero
     private var lastT: TimeInterval?
 
+    /// The pose that starts arming: a close thumb+index pinch that is not the OK sign. Arbiter uses it to hand the hand to cursor mode.
+    static func armPose(_ h: Hand) -> Bool {
+        Geo(h).map { !$0.threeUp && $0.index < closeAt } ?? false
+    }
+
     mutating func step(t: TimeInterval, hands: [Hand]) -> [CursorEvent] {
         defer { lastT = t }
         return active ? stepActive(t, hands) : stepIdle(t, hands)
@@ -66,7 +71,8 @@ struct CursorCore {
         // Two pinching hands is the exit pose, never an arm.
         if hands.count > 1, let g2 = Geo(hands[1]), g2.index < Self.openAt { return cancelArm() }
         if waitRelease { waitRelease = g.index <= Self.openAt; return cancelArm() }
-        guard g.index < (armStart == nil ? Self.closeAt : Self.openAt) else { return cancelArm() }
+        // 👌 (thumb on index, other three fingers up) is a hand sign, not an arm. Only arming is gated: once active, taps are distance-only.
+        guard !g.threeUp, g.index < (armStart == nil ? Self.closeAt : Self.openAt) else { return cancelArm() }
         if let s = armStart, hypot(g.knuckle.x - s.at.x, g.knuckle.y - s.at.y) <= Self.armSteady {
             let p = (t - s.t) / Self.armHold
             guard p >= 1 else { return [.progress(p)] }
@@ -237,6 +243,7 @@ struct CursorCore {
 
     private struct Geo {
         let palm: CGFloat, index: CGFloat, middle: CGFloat // index/middle = thumb-tip distance ÷ palm
+        let threeUp: Bool // middle, ring and little all extended: what separates 👌 from a pinch (same rule as classify)
         let knuckle: CGPoint, pinchPoint: CGPoint
 
         init?(_ h: Hand) {
@@ -246,6 +253,8 @@ struct CursorCore {
             let palm = hypot(w.x - m.x, w.y - m.y)
             guard palm > 0 else { return nil }
             self.palm = palm
+            let e = extendedFingers(h)
+            threeUp = e[2] && e[3] && e[4]
             index = hypot(th.x - it.x, th.y - it.y) / palm
             middle = hypot(th.x - mt.x, th.y - mt.y) / palm
             knuckle = k
@@ -277,11 +286,16 @@ struct CursorCore {
 
     // MARK: self-check
 
-    private enum Pose { case open, pinch, middle, peace }
+    private enum Pose { case open, pinch, ok, middle, peace }
 
     /// Same geometry as SelfTest.hand: wrist (0.5, 0.8), middle MCP (0.5, 0.6), palm 0.2; shifted by dx/dy.
     private static func testHand(_ pose: Pose, dx: CGFloat = 0, dy: CGFloat = 0) -> Hand {
-        let up = pose == .peace ? [true, true, false, false] : [true, true, true, true]
+        // .pinch curls the other three fingers (so it is not 👌); .ok keeps them up.
+        let up = switch pose {
+        case .peace: [true, true, false, false]
+        case .pinch: [true, false, false, false]
+        default: [true, true, true, true]
+        }
         var p: [Joint: CGPoint] = [
             .wrist: CGPoint(x: 0.5, y: 0.8),
             .thumbTip: pose == .peace ? CGPoint(x: 0.5, y: 0.56) : CGPoint(x: 0.3, y: 0.62),
@@ -295,7 +309,7 @@ struct CursorCore {
             p[c.pip] = CGPoint(x: c.x, y: up[i] ? 0.5 : 0.52)
             p[c.tip] = CGPoint(x: c.x, y: up[i] ? 0.4 : 0.66)
         }
-        if pose == .pinch { p[.indexTip] = CGPoint(x: 0.31, y: 0.61) }
+        if pose == .pinch || pose == .ok { p[.indexTip] = CGPoint(x: 0.31, y: 0.61) }
         if pose == .middle { p[.middleTip] = CGPoint(x: 0.31, y: 0.61) }
         return Hand(points: p.mapValues { CGPoint(x: $0.x + dx, y: $0.y + dy) }, chirality: .right)
     }
@@ -322,6 +336,10 @@ struct CursorCore {
         var e = feed([open], 0.3) + feed([pinch], 0.2) + feed([open], 0.2) + feed([mid], 0.1) + feed([open], 0.2)
             + feed([peace], 0.6) + feed([pinch], 0.5) + feed([], 0.5) + feed([pinchL, pinchR], 1.0) + feed([open], 0.2)
         check("nothing before arming", acts(e).isEmpty && !e.contains { if case .move = $0 { return true }; return false } && !c.active)
+
+        check("ok pose never arms", !feed([testHand(.ok)], 1.5).contains(.enter) && !c.active)
+        _ = feed([open], 0.2)
+        check("arbiter sees pinch, not ok", armPose(pinch) && !armPose(testHand(.ok)) && !armPose(open))
 
         e = feed([pinch], 0.5)
         check("not armed at 0.5s", !e.contains(.enter) && e.contains(.progress(0)))

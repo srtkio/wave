@@ -30,7 +30,10 @@ final class HandTracker: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate 
         r.maximumHandCount = 2
         return r
     }()
-    @ObservationIgnored private let faceRequest = VNDetectFaceRectanglesRequest()
+    // Landmarks request also detects the face, so one request gives rect, landmarks and roll.
+    @ObservationIgnored private let faceRequest = VNDetectFaceLandmarksRequest()
+    @ObservationIgnored private var faceInfo = FaceInfo() // camera queue only
+    @ObservationIgnored private var faceTime = -1.0
     @ObservationIgnored private var stabilizer = GestureStabilizer() // camera queue only
     @ObservationIgnored private var configured = false // camera queue only
     @ObservationIgnored private var listeners: [UUID: (HandFrame, Gesture) -> Void] = [:]
@@ -65,6 +68,7 @@ final class HandTracker: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate 
         queue.async {
             self.session.stopRunning()
             self.stabilizer = GestureStabilizer()
+            self.faceInfo = FaceInfo(); self.faceTime = -1
         }
         frame = HandFrame(); gesture = .none; fingers = 0; handVisible = false
         NotchHUD.shared.flash("Wave off", symbol: "hand.raised.slash")
@@ -109,8 +113,16 @@ final class HandTracker: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate 
     func captureOutput(_ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
         guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
         let wantFaces = detectFaces
+        let t = CMSampleBufferGetPresentationTimeStamp(sampleBuffer).seconds
+        // shortcut: faces at 10 Hz; landmarks are the costly request and the face barely moves in 0.1 s.
+        let readFace = wantFaces && (t - faceTime >= 0.1 || t < faceTime)
         let handler = VNImageRequestHandler(cvPixelBuffer: pixelBuffer, orientation: .up)
-        try? handler.perform(wantFaces ? [handRequest, faceRequest] : [handRequest])
+        try? handler.perform(readFace ? [handRequest, faceRequest] : [handRequest])
+        if readFace {
+            faceTime = t
+            faceInfo = Self.readFace(faceRequest.results,
+                                     CGSize(width: CVPixelBufferGetWidth(pixelBuffer), height: CVPixelBufferGetHeight(pixelBuffer)))
+        } else if !wantFaces { faceInfo = FaceInfo() }
 
         let all = (handRequest.results ?? []).map { obs -> Hand in
             var points: [Joint: CGPoint] = [:]
@@ -120,12 +132,9 @@ final class HandTracker: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate 
             return Hand(points: points, chirality: obs.chirality)
         }
         let hands = primaryHands(all)
-        var face: CGRect?
-        if wantFaces, let b = faceRequest.results?.first?.boundingBox {
-            face = CGRect(x: 1 - b.maxX, y: 1 - b.maxY, width: b.width, height: b.height)
-        }
-        let frame = HandFrame(hands: hands, face: face, pixelBuffer: pixelBuffer,
-                              time: CMSampleBufferGetPresentationTimeStamp(sampleBuffer).seconds)
+        let fi = faceInfo
+        let frame = HandFrame(hands: hands, face: fi.rect, faceLandmarks: fi.landmarks, faceCount: fi.count, faceRoll: fi.roll,
+                              pixelBuffer: pixelBuffer, time: t)
         // Feed .none when no hand so the stable gesture clears and features see the release.
         let gesture = stabilizer.update(hands.first.map(classify) ?? .none)
         let fingers = hands.first.map(fingerCount) ?? 0
@@ -148,6 +157,35 @@ final class HandTracker: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate 
             for l in self.anyListeners.values { l(frame, gesture) }
             if self.gesturesAllowed { for l in self.listeners.values { l(frame, gesture) } }
         }
+    }
+}
+
+struct FaceInfo {
+    var rect: CGRect?
+    var landmarks: [CGPoint] = []
+    var count = 0
+    var roll: CGFloat = 0
+}
+
+extension HandTracker {
+    /// Largest face wins (people behind you are smaller). Landmarks are normalised to the face box, so map them through it.
+    fileprivate static func readFace(_ results: [VNFaceObservation]?, _ px: CGSize) -> FaceInfo {
+        guard let faces = results,
+              let best = faces.max(by: { $0.boundingBox.width * $0.boundingBox.height < $1.boundingBox.width * $1.boundingBox.height })
+        else { return FaceInfo() }
+        let b = best.boundingBox
+        var info = FaceInfo(rect: CGRect(x: 1 - b.maxX, y: 1 - b.maxY, width: b.width, height: b.height), count: faces.count)
+        guard let lm = best.landmarks else { return info }
+        func toImage(_ p: CGPoint) -> CGPoint { CGPoint(x: b.minX + p.x * b.width, y: b.minY + p.y * b.height) } // Vision space
+        func centre(_ ps: [CGPoint]) -> CGPoint {
+            let n = CGFloat(ps.count)
+            return toImage(CGPoint(x: ps.reduce(0) { $0 + $1.x } / n, y: ps.reduce(0) { $0 + $1.y } / n))
+        }
+        info.landmarks = (lm.allPoints?.normalizedPoints ?? []).map { let p = toImage($0); return CGPoint(x: 1 - p.x, y: 1 - p.y) }
+        if let l = lm.leftEye?.normalizedPoints, let r = lm.rightEye?.normalizedPoints, !l.isEmpty, !r.isEmpty {
+            info.roll = FacePrint.eyeRoll(centre(l), centre(r), pixels: px)
+        }
+        return info
     }
 }
 

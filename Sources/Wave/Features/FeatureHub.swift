@@ -31,12 +31,13 @@ class FeatureBase {
         status = "Off"
     }
 
-    /// `always` = also while gestures are blocked (only the face check needs that).
+    /// Frames only reach `f` while the Arbiter gives features the hand; otherwise `f` gets an empty frame, so a held
+    /// pose ends and dwell timers reset (a fist mid-drag must not hit play/pause when cursor mode ends).
+    /// `always` skips the Arbiter: only the face check needs that, it has to keep running while gestures are blocked.
     final func listen(always: Bool = false, _ f: @escaping (HandFrame, Gesture) -> Void) {
-        let t = HandTracker.shared
-        // Cursor mode owns the hand; features hear nothing until it ends (a fist mid-drag must not hit play/pause).
-        let gated: (HandFrame, Gesture) -> Void = { frame, g in if !t.cursorActive { f(frame, g) } }
-        ids.append(always ? t.onAnyFrame(gated) : t.onFrame(gated))
+        ids.append(HandTracker.shared.onAnyFrame { frame, g in
+            if always || Arbiter.lane(frame) == .feature { f(frame, g) } else { f(HandFrame(time: frame.time), .none) }
+        })
     }
 
     /// Show a result briefly, then fall back to the idle line.
@@ -151,8 +152,8 @@ enum FeatureChecks {
 
         check("ink map centre", inkMap(CGPoint(x: 0.5, y: 0.5)) == CGPoint(x: 0.5, y: 0.5))
         check("ink map clamps", inkMap(CGPoint(x: 0, y: 1)) == CGPoint(x: 0, y: 1))
-        check("face threshold floor", FacePrint.threshold(intraMax: 0) == FacePrint.floor)
-        check("face threshold scales", FacePrint.threshold(intraMax: 10) == 15)
+        check("arbiter crossfire matrix", Arbiter.selfCheck())
+        check("face check maths", FaceCheck.selfCheck())
         return failed == 0
     }
 }

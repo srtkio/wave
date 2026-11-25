@@ -56,19 +56,20 @@ private struct InkCanvas: View {
     }
 }
 
-/// Pinch to draw glowing ink on a click-through overlay above every app; open palm wipes it.
+/// Point with one finger to draw glowing ink on a click-through overlay above every app; open palm wipes it.
+/// Pinch is not used: it arms cursor mode. Pointing with the thumb sticking out is the 🇱 sign, so keep the thumb tucked.
 final class AirInk: FeatureBase {
     private let model = InkModel()
     private var window: NSWindow?
-    private var pinching = false
+    private var drawing = false
 
     init() {
         super.init(key: "feature.ink", symbol: "scribble.variable", name: "Air ink",
-                   blurb: "Pinch to draw on your screen. Open palm clears.")
+                   blurb: "Point one finger, thumb tucked, to draw on your screen. Open palm clears.")
     }
 
     override func begin() {
-        pinching = false
+        drawing = false
         // shortcut: covers the main screen only, add one window per NSScreen for multi-monitor.
         let w = NSWindow(contentRect: NSScreen.main?.frame ?? .zero, styleMask: .borderless, backing: .buffered, defer: false)
         w.isOpaque = false
@@ -87,18 +88,23 @@ final class AirInk: FeatureBase {
     override func end() {
         window?.orderOut(nil)
         window = nil
+        drawing = false
+        Arbiter.featureHeld = false
         model.strokes = []
     }
 
     private func tick(_ f: HandFrame, _ g: Gesture) {
         let now = Date().timeIntervalSinceReferenceDate
-        if g == .open { model.strokes = [] }
-        if g == .pinch, let tip = f.hands.first?.points[.indexTip] {
-            model.add(inkMap(tip), newStroke: !pinching, now: now)
-            pinching = true
+        // Near the face the Arbiter's zones win (mute / face-touch), so ink neither draws nor clears there.
+        let free = Arbiter.zone(f) == .none
+        if g == .open, free { model.strokes = [] }
+        if g == .point, free, let tip = f.hands.first?.points[.indexTip] {
+            model.add(inkMap(tip), newStroke: !drawing, now: now)
+            drawing = true
         } else {
-            pinching = false
+            drawing = false
         }
+        Arbiter.featureHeld = drawing // a stroke in progress keeps the hand: a thumb flaring into 🇱 must not cut in
         model.prune(now: now)
     }
 }
