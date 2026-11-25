@@ -142,7 +142,6 @@ final class HandTracker: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate 
             if self.gesture != gesture {
                 self.gesture = gesture
                 SessionLog.log("gesture \(gesture.rawValue) fingers=\(fingers)\(hands.first.map { String(format: " palm=%.3f", palmSize($0)) } ?? "")")
-                if gesture != .none, NotchHUD.shared.sticky == nil { NotchHUD.shared.flash(gesture.title) }
             }
             if self.fingers != fingers { self.fingers = fingers }
             if self.handVisible == hands.isEmpty { self.handVisible = !hands.isEmpty }

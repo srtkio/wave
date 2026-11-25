@@ -14,7 +14,15 @@ cp Resources/Info.plist build/Wave.app/Contents/Info.plist
 if [ scripts/make-icon.swift -nt build/AppIcon.icns ]; then swift scripts/make-icon.swift build/AppIcon.icns; fi
 mkdir -p build/Wave.app/Contents/Resources
 cp build/AppIcon.icns build/Wave.app/Contents/Resources/AppIcon.icns
-codesign --force --deep -s - build/Wave.app
+# Sign with a fixed local identity so macOS keeps Camera/Accessibility grants across rebuilds.
+# Ad-hoc signing (-s -) ties the grant to this exact build, so every rebuild asked again.
+# One-time setup: scripts/make-signing-identity.sh
+if security find-identity -p codesigning | grep -q "Wave Local Signing"; then
+  codesign --force --deep -s "Wave Local Signing" build/Wave.app
+else
+  echo "warning: no 'Wave Local Signing' identity; signing ad hoc (permissions will be asked again after each build)" >&2
+  codesign --force --deep -s - build/Wave.app
+fi
 
 # Keep a copy in Applications so Wave opens from Launchpad, Spotlight and Finder like any app.
 pkill -x Wave 2>/dev/null || true

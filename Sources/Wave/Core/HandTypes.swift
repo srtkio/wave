@@ -15,6 +15,8 @@ struct HandFrame {
     var hands: [Hand] = []
     /// First detected face, same coordinate space as `Hand.points`. Only set while `HandTracker.detectFaces` is true.
     var face: CGRect? = nil
+    /// Face landmark points (eyes, brows, nose, lips, outline), same space as `face`. Empty unless faces are detected.
+    var faceLandmarks: [CGPoint] = []
     /// Raw sensor image: NOT mirrored, Vision space (bottom-left origin). Convert a rect `f` back with
     /// `CGRect(x: 1 - f.maxX, y: 1 - f.maxY, width: f.width, height: f.height)` (its own inverse).
     var pixelBuffer: CVPixelBuffer? = nil

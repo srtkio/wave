@@ -9,8 +9,15 @@ enum Output {
     static let NX_KEYTYPE_PREVIOUS: Int32 = 18
 
     /// Prompts for Accessibility (needed to post key events) if not yet trusted.
+    private static var askedForAccessibility = false
+
+    /// True if Wave may post input. Shows the system prompt at most once per launch; after that it only checks.
     @discardableResult static func ensureAccessibility() -> Bool {
-        AXIsProcessTrustedWithOptions([kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary)
+        if AXIsProcessTrusted() { return true }
+        guard !askedForAccessibility else { return false }
+        askedForAccessibility = true
+        SessionLog.log("asking for Accessibility")
+        return AXIsProcessTrustedWithOptions([kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary)
     }
 
     /// Posts key down + key up.
