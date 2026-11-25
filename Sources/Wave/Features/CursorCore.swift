@@ -29,7 +29,11 @@ struct CursorCore {
     static let exitHold = 2.0
     static let pauseAfter = 1.5, quitAfter = 20.0
     // shortcut: central 60% of the camera maps to the screen, widen or shift if edges are hard to reach.
-    static let zoneLo: CGFloat = 0.2, zoneHi: CGFloat = 0.8
+    // Trackpad-style pointer: hand *motion* in palm-widths moves the cursor, with acceleration, so small moves go far
+    // and distance from the camera doesn't matter. Gain is screen-widths per palm-width at a given hand speed.
+    // shortcut: slow ≈ ⅓ screen per palm (~6 px per mm), a quick flick up to 2 screens per palm; tune on hardware (Speed slider scales it).
+    static let gainSlow: CGFloat = 0.35, gainPerSpeed: CGFloat = 0.5, gainMax: CGFloat = 2.0
+    static let stillSpeed: CGFloat = 0.06 // palm-widths/s; slower than this is tracking noise, not intent
     static let minMove: CGFloat = 0.0005 // ~1px; a still hand must not fight a real trackpad
     static let scrollIn = 0.15, scrollOut = 0.25
     // shortcut: dead zone 0.3 palm, then 2500·excess^1.5 px/s capped at 4000, tune by feel.
@@ -53,6 +57,14 @@ struct CursorCore {
     private var scrollOrigin: CGPoint?
     private var scrollCarry = CGPoint.zero
     private var lastT: TimeInterval?
+    private var lastKnuckle: CGPoint? // filtered, square units
+    /// Speed multiplier from the Cursor page (1 = default).
+    var sensitivity: CGFloat = 1
+    /// Screen width ÷ height, so a hand move is the same distance in pixels horizontally and vertically.
+    var aspect: CGFloat = 1.6
+
+    /// Starts the cursor where the real pointer is (normalised screen coordinates).
+    mutating func place(_ p: CGPoint) { cursor = p }
 
     /// The pose that starts arming: a close thumb+index pinch that is not the OK sign. Arbiter uses it to hand the hand to cursor mode.
     static func armPose(_ h: Hand) -> Bool {
@@ -97,6 +109,8 @@ struct CursorCore {
         guard let h = hands.first, let g = Geo(h) else {
             let since = lostSince ?? t
             lostSince = since
+            // The hand may come back somewhere else: start motion fresh so the cursor doesn't jump.
+            filter = OneEuro(); lastKnuckle = nil
             if t - since > Self.quitAfter { return exit() }
             guard t - since > Self.pauseAfter, !paused else { return [] }
             paused = true
@@ -137,7 +151,7 @@ struct CursorCore {
             guard t - s >= Self.scrollOut else { return out } // pose flicker mid-scroll: hold still
             scrollOrigin = nil
             notPeaceSince = nil
-            filter = OneEuro()
+            filter = OneEuro(); lastKnuckle = nil
             out.append(.scrollMode(false))
         }
 
@@ -169,15 +183,21 @@ struct CursorCore {
         }
 
         // Move: anchored on the index knuckle, which barely moves when the fingertips pinch.
-        guard !peace else { return out }
-        let f = filter(CGPoint(x: Self.map(g.knuckle.x), y: Self.map(g.knuckle.y)), t)
-        history.append((t, f))
+        guard !peace else { lastKnuckle = nil; return out }
+        let k = filter(CGPoint(x: g.knuckle.x * 16 / 9, y: g.knuckle.y), t) // square units: the frame is 16:9
+        defer { lastKnuckle = k }
+        guard let prev = lastKnuckle, let t0 = lastT, t > t0 else { return out }
+        let d = CGPoint(x: (k.x - prev.x) / g.palm, y: (k.y - prev.y) / g.palm) // palm-widths
+        let speed = hypot(d.x, d.y) / CGFloat(t - t0)
+        guard speed > Self.stillSpeed else { return out }
+        let gain = min(Self.gainMax, Self.gainSlow + Self.gainPerSpeed * speed) * sensitivity
+        let c = cursor ?? CGPoint(x: 0.5, y: 0.5)
+        let p = CGPoint(x: min(1, max(0, c.x + d.x * gain)), y: min(1, max(0, c.y + d.y * gain * aspect)))
+        history.append((t, p))
         history.removeAll { $0.t < t - 0.3 }
-        if pinch == nil || dragging { out += emit(f) }
+        if pinch == nil || dragging { out += emit(p) } // a closing pinch must not drag the aim away
         return out
     }
-
-    private static func map(_ v: CGFloat) -> CGFloat { min(1, max(0, (v - zoneLo) / (zoneHi - zoneLo))) }
 
     private mutating func emit(_ p: CGPoint) -> [CursorEvent] {
         if let c = cursor, hypot(p.x - c.x, p.y - c.y) < Self.minMove { return [] }
@@ -223,7 +243,7 @@ struct CursorCore {
         scrollOrigin = nil
         peaceSince = nil
         notPeaceSince = nil
-        filter = OneEuro()
+        filter = OneEuro(); lastKnuckle = nil
         return out
     }
 
@@ -265,7 +285,7 @@ struct CursorCore {
     /// One Euro filter (Casiez et al. 2012): heavy smoothing at rest, little lag when moving fast.
     private struct OneEuro {
         // shortcut: beta 15 per screen-width/s ≈ 0.01 per px on a 1500px screen, tune on hardware.
-        static let minCutoff = 1.0, beta = 15.0, dCutoff = 1.0
+        static let minCutoff = 0.6, beta = 15.0, dCutoff = 1.0 // lower minCutoff = steadier at rest
         private var x: CGPoint?, dx = CGPoint.zero, t: TimeInterval = 0
 
         mutating func callAsFunction(_ p: CGPoint, _ now: TimeInterval) -> CGPoint {
@@ -289,7 +309,7 @@ struct CursorCore {
     private enum Pose { case open, pinch, ok, middle, peace }
 
     /// Same geometry as SelfTest.hand: wrist (0.5, 0.8), middle MCP (0.5, 0.6), palm 0.2; shifted by dx/dy.
-    private static func testHand(_ pose: Pose, dx: CGFloat = 0, dy: CGFloat = 0) -> Hand {
+    private static func testHand(_ pose: Pose, dx: CGFloat = 0, dy: CGFloat = 0, scale: CGFloat = 1) -> Hand {
         // .pinch curls the other three fingers (so it is not 👌); .ok keeps them up.
         let up = switch pose {
         case .peace: [true, true, false, false]
@@ -311,7 +331,9 @@ struct CursorCore {
         }
         if pose == .pinch || pose == .ok { p[.indexTip] = CGPoint(x: 0.31, y: 0.61) }
         if pose == .middle { p[.middleTip] = CGPoint(x: 0.31, y: 0.61) }
-        return Hand(points: p.mapValues { CGPoint(x: $0.x + dx, y: $0.y + dy) }, chirality: .right)
+        // scale < 1 = a hand further from the camera (shrunk around the wrist).
+        return Hand(points: p.mapValues { CGPoint(x: 0.5 + ($0.x - 0.5) * scale + dx, y: 0.8 + ($0.y - 0.8) * scale + dy) },
+                    chirality: .right)
     }
 
     /// Drives `step` with synthetic hands at 30 fps of fake time. Prints each failure.
@@ -354,6 +376,26 @@ struct CursorCore {
         check("one-frame flicker = nothing", acts(feed([pinch], 1.0 / 30) + feed([open], 0.5)).isEmpty)
         check("index pinch with middle nearby = left click", acts(feed([nearMid], 0.1) + feed([open], 0.5)) == [.leftClick(1)])
         check("middle tap = right click", acts(feed([mid], 0.1) + feed([open], 0.5)) == [.rightClick])
+
+        // Trackpad-style motion. Δx = how far the cursor went (screen widths) for a hand slide of `dist` over `secs`.
+        func slide(_ dist: CGFloat, _ secs: Double, scale: CGFloat = 1) -> CGFloat {
+            _ = feed([], 0.1) // brief loss resets motion, so jumping to the start position moves nothing
+            c.place(CGPoint(x: 0.1, y: 0.5))
+            let n = Int((secs * 30).rounded())
+            var e: [CursorEvent] = []
+            for i in 1...n { t += 1.0 / 30; e += c.step(t: t, hands: [testHand(.open, dx: dist * CGFloat(i) / CGFloat(n), scale: scale)]) }
+            e += feed([testHand(.open, dx: dist, scale: scale)], 0.5) // let the filter settle
+            let xs = e.compactMap { if case let .move(p) = $0 { return p.x }; return nil }
+            return (xs.last ?? 0.1) - 0.1
+        }
+        _ = feed([open], 0.5)
+        check("still hand: cursor doesn't drift", !feed([open], 1.0).contains { if case .move = $0 { return true }; return false })
+        let slow = slide(0.05, 1.0), fast = slide(0.05, 0.15), farSlow = slide(0.025, 1.0, scale: 0.5)
+        print(String(format: "info cursor: a ½-palm (~4 cm) slide moves %.2f screen slow, %.2f fast, %.2f from twice as far away", slow, fast, farSlow))
+        check("slow slide moves the cursor (\(slow))", slow > 0.08)
+        check("same slide done fast goes ≥2× further (\(fast) vs \(slow))", fast > 2 * slow)
+        check("distance from camera doesn't change speed (\(farSlow) vs \(slow))", abs(farSlow - slow) < 0.25 * slow)
+        _ = feed([open], 0.3)
 
         e = feed([pinch], 0.4) + feed([testHand(.pinch, dx: 0.1)], 0.3) + feed([open], 0.3)
         let down = e.firstIndex(of: .leftDown) ?? -1, up = e.firstIndex(of: .leftUp) ?? -1

@@ -60,7 +60,7 @@ Outside cursor mode, **hold** a sign for 0.8 s. A ring fills in the notch, then 
 | 👍 Thumbs up | Play / pause |
 | 🤘 Rock | Next track |
 | 🤙 Call me | Mission Control |
-| ✌️ Peace | Screenshot |
+| ✌️ Peace | Full-screen screenshot, saved to your usual screenshots folder |
 | 👌 OK | Copy |
 | 🇱 L (thumb and index at a right angle) | Paste |
 

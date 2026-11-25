@@ -49,7 +49,8 @@ enum SignAction: Hashable {
         case .paste: Output.paste()
         // Opening the app works regardless of the user's Ctrl+Up setting and needs no Accessibility.
         case .missionControl: NSWorkspace.shared.open(URL(fileURLWithPath: "/System/Applications/Mission Control.app"))
-        case .screenshot: Output.key(21, flags: [.maskCommand, .maskShift])   // Cmd+Shift+4
+        // ⌘⇧3: whole screen, saved wherever the user's screenshots normally go (Screenshot app settings).
+        case .screenshot: Output.key(20, flags: [.maskCommand, .maskShift])
         }
     }
 }
@@ -138,6 +139,15 @@ final class HandSigns {
             setRing(nil)
             guard a != .none else { return }
             if !askedAccessibility { askedAccessibility = true; Output.ensureAccessibility() }
+            if a == .screenshot {
+                // Let the notch ring tuck away first so it isn't in the shot; confirm afterwards.
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) {
+                    a.run()
+                    SessionLog.log("screenshot taken (full screen)")
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { NotchHUD.shared.flash("\(fired.emoji) \(a.title)") }
+                }
+                return
+            }
             a.run()
             NotchHUD.shared.flash("\(fired.emoji) \(a.title)")
         } else if let cur = hold.sign, (actions[cur] ?? SignAction.none) != .none {

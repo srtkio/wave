@@ -12,6 +12,24 @@ Raw evidence for a test session lives in `~/Library/Logs/Wave/session.log` (menu
 
 ## Fixed
 
+### 2026-11-25: Cursor needed big hand movements and felt choppy
+- **Seen (user):** "you need to move your hand a lot". The user asked for smoother motion and a higher "DPI".
+- **Cause:**
+  - The cursor was the knuckle's *position* inside the middle 60% of the camera frame, stretched to the screen. Crossing the screen took about 4 palm-widths of hand travel.
+  - Stretching that position also stretched camera jitter.
+  - The pointer moved only when a camera frame arrived (30 Hz), so it stepped.
+- **Fix:**
+  - **Trackpad-style motion:** the knuckle's *motion* in palm-widths moves the cursor, with acceleration: 0.35 screen/palm slow (~6 px/mm), +0.5 per palm/s, max 2.0. It's the same near or far from the camera. Under 0.06 palm/s counts as stillness, so a resting hand doesn't drift.
+  - **Smoothing:** stronger filtering at rest (One Euro min cutoff 1.0 → 0.6 Hz), and the pointer glides toward each new position at 120 Hz. Clicks snap to the aimed point first.
+  - **Start:** cursor mode picks up wherever the pointer already is.
+  - **Speed slider** on the Cursor page (0.5–2.5).
+  - Losing the hand resets motion, so the cursor doesn't jump when the hand comes back elsewhere.
+- **Check:** self-test `info cursor:` line. A ½-palm (~4 cm) slide moves 0.24 screen slowly and 0.52 fast, and 0.24 from twice as far away. Tests: still hand doesn't drift; fast ≥ 2× slow; distance-independent.
+
+### 2026-11-25: ✌️ screenshot opened the selection tool
+- **Seen (user):** wanted a whole-screen shot saved where screenshots normally go.
+- **Fix:** ✌️ now sends ⌘⇧3 (full screen, saved to the location set in the Screenshot app). The notch ring tucks away first (0.45s) so it's not in the shot, and the confirmation shows afterwards.
+
 ### 2026-11-25: UI looked like "AI slop"; whole window was camera; menu dropdown was a mess
 - **Seen:**
   - The blue→violet gradient glass, forced dark mode and a full-window camera with every control on top of it.

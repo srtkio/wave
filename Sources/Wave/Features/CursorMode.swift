@@ -11,6 +11,10 @@ final class CursorMode {
     private var lastTick: TimeInterval = 0
     private var trusted = false, trustCheckedAt: TimeInterval = 0
     private var buttonDown = false
+    // The camera gives ~30 positions a second; the pointer glides toward the latest one at 120 Hz so it moves smoothly.
+    private var target: CGPoint?, shown: CGPoint? // screen pixels
+    private var glide: Timer?
+    static let speedKey = "cursor.speed" // Speed slider on the Cursor page, 0.5…2.5
 
     static func selfCheck() -> Bool { CursorCore.selfCheck() }
 
@@ -33,6 +37,7 @@ final class CursorMode {
         if buttonDown { post(.leftUp) }
         let wasActive = HandTracker.shared.cursorActive
         core = CursorCore()
+        stopGlide()
         HandTracker.shared.cursorActive = false
         NotchHUD.shared.progress = nil
         NotchHUD.shared.setSticky(nil)
@@ -41,6 +46,8 @@ final class CursorMode {
 
     private func tick(_ hands: [Hand]) {
         lastTick = ProcessInfo.processInfo.systemUptime
+        let speed = UserDefaults.standard.double(forKey: Self.speedKey)
+        core.sensitivity = speed > 0 ? speed : 1
         for e in core.step(t: lastTick, hands: hands) { apply(e) }
     }
 
@@ -52,6 +59,10 @@ final class CursorMode {
         let hud = NotchHUD.shared
         switch e {
         case .enter:
+            // Continue from wherever the pointer is now, like picking up a mouse.
+            let b = CGDisplayBounds(CGMainDisplayID()), here = CGEvent(source: nil)?.location ?? CGPoint(x: b.midX, y: b.midY)
+            core.aspect = b.width / max(1, b.height)
+            core.place(CGPoint(x: (here.x - b.minX) / max(1, b.width - 1), y: (here.y - b.minY) / max(1, b.height - 1)))
             HandTracker.shared.cursorActive = true
             trusted = Output.ensureAccessibility()
             trustCheckedAt = lastTick
@@ -59,6 +70,7 @@ final class CursorMode {
             if trusted { hud.flash("Cursor on", symbol: "cursorarrow.motionlines") }
             else { hud.flash("Allow Accessibility", symbol: "lock.shield") }
         case .exit:
+            stopGlide()
             HandTracker.shared.cursorActive = false
             hud.progress = nil
             hud.setSticky(nil)
@@ -79,17 +91,19 @@ final class CursorMode {
             trusted = AXIsProcessTrusted()
             guard trusted else { return }
         }
-        let here = CGEvent(source: nil)?.location ?? .zero
         func mouse(_ type: CGEventType, _ at: CGPoint, _ button: CGMouseButton = .left, clicks: Int = 1) {
-            let m = CGEvent(mouseEventSource: nil, mouseType: type, mouseCursorPosition: at, mouseButton: button)
-            m?.setIntegerValueField(.mouseEventClickState, value: Int64(clicks))
-            m?.post(tap: .cghidEventTap)
+            Self.mouse(type, at, button, clicks: clicks)
         }
-        switch e {
-        case .move(let p):
+        if case let .move(p) = e {
             let b = CGDisplayBounds(CGMainDisplayID())
-            let at = CGPoint(x: b.minX + p.x * (b.width - 1), y: b.minY + p.y * (b.height - 1))
-            mouse(buttonDown ? .leftMouseDragged : .mouseMoved, at)
+            target = CGPoint(x: b.minX + p.x * (b.width - 1), y: b.minY + p.y * (b.height - 1))
+            if glide == nil {
+                glide = Timer.scheduledTimer(withTimeInterval: 1.0 / 120, repeats: true) { [weak self] _ in self?.glideStep() }
+            }
+            return
+        }
+        let here = snap() // clicks land exactly on the aimed point, not mid-glide
+        switch e {
         case .leftDown:
             buttonDown = true
             mouse(.leftMouseDown, here)
@@ -109,5 +123,37 @@ final class CursorMode {
         default:
             break
         }
+    }
+
+    private func glideStep() {
+        guard let tg = target else { return stopGlide() }
+        let cur = shown ?? CGEvent(source: nil)?.location ?? tg
+        var next = CGPoint(x: cur.x + (tg.x - cur.x) * 0.35, y: cur.y + (tg.y - cur.y) * 0.35)
+        let arrived = hypot(tg.x - next.x, tg.y - next.y) < 0.5
+        if arrived { next = tg }
+        Self.mouse(buttonDown ? .leftMouseDragged : .mouseMoved, next)
+        shown = next
+        if arrived { stopGlide() }
+    }
+
+    /// Finishes any glide at once and returns where the pointer is.
+    private func snap() -> CGPoint {
+        if let tg = target, shown != tg { Self.mouse(buttonDown ? .leftMouseDragged : .mouseMoved, tg) }
+        let at = target ?? CGEvent(source: nil)?.location ?? .zero
+        stopGlide()
+        return at
+    }
+
+    private func stopGlide() {
+        glide?.invalidate()
+        glide = nil
+        target = nil
+        shown = nil // next glide starts from the real pointer, in case the trackpad moved it
+    }
+
+    private static func mouse(_ type: CGEventType, _ at: CGPoint, _ button: CGMouseButton = .left, clicks: Int = 1) {
+        let m = CGEvent(mouseEventSource: nil, mouseType: type, mouseCursorPosition: at, mouseButton: button)
+        m?.setIntegerValueField(.mouseEventClickState, value: Int64(clicks))
+        m?.post(tap: .cghidEventTap)
     }
 }

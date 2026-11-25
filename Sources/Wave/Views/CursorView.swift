@@ -25,7 +25,7 @@ private let steps: [HowTo] = {
     let tap = "\(String(format: "%g", C.tapMin))–\(secs(C.tapMax))"
     return [
         HowTo(symbol: "hand.pinch", title: "Start", how: "Pinch thumb and index and hold your hand still. A ring fills in the notch.", timing: secs(C.armHold)),
-        HowTo(symbol: "cursorarrow.motionlines", title: "Move", how: "Move your hand. The index knuckle steers, so pinching doesn't nudge the cursor.", timing: "Live"),
+        HowTo(symbol: "cursorarrow.motionlines", title: "Move", how: "Move your hand like on a trackpad: small, quick moves go far, slow ones are precise. The index knuckle steers, so pinching doesn't nudge it.", timing: "Live"),
         HowTo(symbol: "cursorarrow.click", title: "Click", how: "A quick pinch and release of thumb and index.", timing: tap),
         HowTo(symbol: "cursorarrow.click.2", title: "Double-click", how: "Two quick pinches in the same spot.", timing: "Within \(secs(C.doubleGap))"),
         HowTo(symbol: "contextualmenu.and.cursorarrow", title: "Right-click", how: "A quick pinch of thumb and middle finger.", timing: tap),
@@ -36,6 +36,8 @@ private let steps: [HowTo] = {
 }()
 
 struct CursorView: View {
+    @AppStorage(CursorMode.speedKey) private var speed = 1.0
+
     var body: some View {
         let t = HandTracker.shared
         let arming = cursorArming()
@@ -61,6 +63,20 @@ struct CursorView: View {
                 .padding(.vertical, 2)
             }
 
+            Section {
+                LabeledContent {
+                    HStack(spacing: 8) {
+                        Image(systemName: "tortoise").foregroundStyle(.secondary)
+                        Slider(value: $speed, in: 0.5...2.5)
+                        Image(systemName: "hare").foregroundStyle(.secondary)
+                    }
+                    .frame(maxWidth: 280)
+                } label: {
+                    Text("Speed")
+                    Text("Like trackpad speed. Slow hand moves are precise; quick ones go further.")
+                }
+            }
+
             Section("How to") {
                 ForEach(steps) { s in
                     HStack(spacing: 12) {
@@ -81,7 +97,7 @@ struct CursorView: View {
             }
 
             Section {
-                Text("Only the central part of the camera maps to the screen, so you never need to reach the edges. After \(secs(CursorCore.pauseAfter)) without a hand, cursor mode pauses; after \(String(format: "%g", CursorCore.quitAfter)) s it ends.")
+                Text("The pointer follows how your hand moves, measured in palm-widths, so it feels the same near or far from the camera, and it picks up wherever the pointer already is. After \(secs(CursorCore.pauseAfter)) without a hand, cursor mode pauses; after \(String(format: "%g", CursorCore.quitAfter)) s it ends.")
                     .font(.callout).foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
