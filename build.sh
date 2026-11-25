@@ -16,4 +16,9 @@ mkdir -p build/Wave.app/Contents/Resources
 cp build/AppIcon.icns build/Wave.app/Contents/Resources/AppIcon.icns
 codesign --force --deep -s - build/Wave.app
 
-echo "$(pwd)/build/Wave.app"
+# Keep a copy in Applications so Wave opens from Launchpad, Spotlight and Finder like any app.
+pkill -x Wave 2>/dev/null || true
+rm -rf /Applications/Wave.app
+ditto build/Wave.app /Applications/Wave.app
+
+echo "/Applications/Wave.app"

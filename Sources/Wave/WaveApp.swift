@@ -10,7 +10,7 @@ struct WaveMain {
         if let i = CommandLine.arguments.firstIndex(of: "--snapshot"), i + 1 < CommandLine.arguments.count {
             MainActor.assumeIsolated { Snapshot.run(to: CommandLine.arguments[i + 1]) }
         }
-        NSApp.setActivationPolicy(.accessory) // menu-bar app: no Dock icon, no window at launch
+        NSApp.setActivationPolicy(.regular) // normal app: Dock icon, window at launch; menu bar + notch still work
         WaveApp.main()
     }
 }
@@ -24,7 +24,7 @@ struct WaveApp: App {
     }
 
     var body: some Scene {
-        // Optional window for Learn/Playground/etc; everything else runs from the menu bar.
+        // Opens at launch and from the Dock icon; the menu bar and notch keep working when it is closed.
         Window("Wave", id: "main") {
             WaveRoot()
                 .frame(minWidth: 960, minHeight: 640)
@@ -32,7 +32,6 @@ struct WaveApp: App {
         }
         .windowStyle(.hiddenTitleBar)
         .defaultSize(width: 1280, height: 800)
-        .defaultLaunchBehavior(.suppressed)
         MenuBarExtra {
             MenuPanel()
         } label: {

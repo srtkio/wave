@@ -18,8 +18,6 @@
 	<string>1</string>
 	<key>LSMinimumSystemVersion</key>
 	<string>15.0</string>
-	<key>LSUIElement</key>
-	<true/>
 	<key>NSCameraUsageDescription</key>
 	<string>Wave uses the camera to see your hand gestures. Video never leaves your Mac.</string>
 	<key>NSHighResolutionCapable</key>

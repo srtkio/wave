@@ -22,7 +22,7 @@ Wave lives in your menu bar. Switch it on and your webcam turns into a trackpad 
 - **A mouse in the air.** Pinch to arm cursor mode, then point, tap and drag. No gloves, no extra hardware.
 - **Hand signs for the things you do all day.** Play/pause, next track, Mission Control, screenshot, copy and paste. Reassign any of them, including to an Apple Shortcut.
 - **Private by design.** Apple Vision runs on your Mac. Frames are not saved or sent anywhere.
-- **Out of the way.** No Dock icon, no window at launch. The camera runs only while Wave is on.
+- **A normal app.** Open it from Launchpad, Spotlight or the Dock; close the window and it keeps working from the menu bar and notch. The camera runs only while Wave is on.
 - **Ignores bystanders.** Only the closest hand counts, so people behind you cannot trigger anything.
 
 ## Quick start
@@ -30,7 +30,7 @@ Wave lives in your menu bar. Switch it on and your webcam turns into a trackpad 
 ```sh
 git clone https://github.com/srtkio/wave.git && cd wave
 ./build.sh
-open build/Wave.app
+open /Applications/Wave.app   # build.sh installs it there
 ```
 
 Needs macOS 15 or later and Xcode 27 with Swift 6. Click the hand icon in the menu bar, flip **Wave** on, and allow **Camera** and **Accessibility** when asked. Camera access only works from the built app bundle, not from `swift run`.
