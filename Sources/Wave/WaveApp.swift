@@ -139,7 +139,7 @@ private struct PressScale: ButtonStyle {
     }
 }
 
-private struct MenuPanel: View {
+struct MenuPanel: View {
     @Environment(\.openWindow) private var openWindow
 
     var body: some View {

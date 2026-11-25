@@ -18,6 +18,8 @@ final class NotchHUD {
     var shown: (text: String, symbol: String)? { flashItem ?? sticky }
 
     @ObservationIgnored private var panel: NSPanel?
+    /// `--snapshot` renders the pill itself; no real panel.
+    @ObservationIgnored var headless = false
     @ObservationIgnored private var flashID = 0
 
     func flash(_ text: String, symbol: String = "hand.wave.fill", seconds: Double = 1.4) {
@@ -37,7 +39,7 @@ final class NotchHUD {
     }
 
     private func ensurePanel() {
-        guard panel == nil else { return }
+        guard panel == nil, !headless else { return }
         let screen = NSScreen.screens.first { $0.safeAreaInsets.top > 0 } ?? NSScreen.main ?? NSScreen.screens[0]
         let notch = Self.notchSize(on: screen)
         let size = CGSize(width: notch.width + 2 * Self.side, height: notch.height + 8)
@@ -66,11 +68,11 @@ final class NotchHUD {
     }
 }
 
-private struct NotchPill: View {
+struct NotchPill: View {
     let notch: CGSize
+    var hud = NotchHUD.shared
 
     var body: some View {
-        let hud = NotchHUD.shared
         let open = hud.shown != nil || hud.progress != nil
         VStack(spacing: 0) {
             HStack(spacing: 0) {
