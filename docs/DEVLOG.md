@@ -12,6 +12,12 @@ Raw evidence for a test session lives in `~/Library/Logs/Wave/session.log` (menu
 
 ## Fixed
 
+### 2026-11-27: Made the repo public
+- **Before publishing:**
+  - Scanned the full history for keys, tokens and private keys: none.
+  - Removed another person's name and email from this dev log in every commit (history rewritten with plumbing, code unchanged, 36/36 commits still authored by srtkio).
+- **Published as a fresh repo:** the clean history went to a new public `srtkio/wave`, and the old private repo was renamed `srtkio/wave-archive`. GitHub keeps unreachable old commits viewable by ID, so flipping the old repo to public would have exposed them.
+
 ### 2026-11-25: Cursor needed big hand movements and felt choppy
 - **Seen (user):** "you need to move your hand a lot". The user asked for smoother motion and a higher "DPI".
 - **Cause:**
@@ -50,7 +56,7 @@ Raw evidence for a test session lives in `~/Library/Logs/Wave/session.log` (menu
 
 ### 2026-11-25: Commits were linked to the wrong GitHub account
 - **Seen:** GitHub showed another person's GitHub account as the author on every commit.
-- **Cause:** when the repo was created (2026-11-23), its local git config was set to an email taken from the Claude account's context, which belongs to someone else instead of leaving the Mac's identity, `Sarthak Rai <trojan5779@gmail.com>` (srtkio). GitHub links commits to accounts by email.
+- **Cause:** when the repo was created (2026-11-23), its local git config was set to an email taken from the Claude account's context, which belongs to someone else, instead of leaving the Mac's identity, `Sarthak Rai <trojan5779@gmail.com>` (srtkio). GitHub links commits to accounts by email.
 - **Fix:**
   - Removed the repo-local `user.email`/`user.name`.
   - Re-created all 33 commits with srtkio as author and committer. Trees, messages, dates and Claude co-author lines were unchanged; this was checked commit by commit.
