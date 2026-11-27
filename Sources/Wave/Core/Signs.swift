@@ -32,6 +32,18 @@ private func dist(_ a: CGPoint, _ b: CGPoint) -> CGFloat { hypot(a.x - b.x, a.y 
 private let needed: [Joint] = [.wrist, .middleMCP, .indexMCP, .thumbTip, .indexTip, .indexPIP, .middleTip, .middlePIP,
                                .ringTip, .ringPIP, .littleTip, .littlePIP]
 
+/// One line explaining what `sign()` saw, for the session log when a held sign drops out.
+func signDebug(_ h: Hand) -> String {
+    let p = h.points
+    let missing = needed.filter { p[$0] == nil }
+    guard missing.isEmpty else { return "missing joints \(missing.map { $0.rawValue.rawValue })" }
+    let palm = dist(p[.wrist]!, p[.middleMCP]!)
+    guard palm > 0 else { return "palm 0" }
+    let e = extendedFingers(h).map { $0 ? "up" : "down" }
+    return String(format: "thumb-index %.2f palm (OK needs < 0.30)", dist(p[.thumbTip]!, p[.indexTip]!) / palm)
+        + " fingers thumb:\(e[0]) index:\(e[1]) middle:\(e[2]) ring:\(e[3]) little:\(e[4])"
+}
+
 /// The sign this hand is making, or nil when it is anything else. Distances are relative to palm size
 /// (wrist to middle knuckle), like `classify`. Finger up/curled comes from `extendedFingers`.
 func sign(_ h: Hand) -> Sign? {

@@ -32,7 +32,7 @@ enum Arbiter {
     static func lane(_ f: HandFrame) -> Lane? {
         let t = HandTracker.shared, signs = HandSigns.shared
         let hand = f.hands.first
-        let s = signs.enabled ? hand.flatMap(sign) : nil
+        let s = signs.enabled ? signs.currentSign(f) : nil
         let bound = s.map { signs.actions[$0].map { $0 != SignAction.none } ?? false } ?? false
         let arming = !t.cursorActive && (hand.map(CursorCore.armPose) ?? false)
         let l = lane(armOrActive: t.cursorActive || arming, signPose: bound, faceOK: t.gesturesAllowed, featureHeld: featureHeld)

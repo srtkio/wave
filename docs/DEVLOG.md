@@ -12,6 +12,19 @@ Raw evidence for a test session lives in `~/Library/Logs/Wave/session.log` (menu
 
 ## Fixed
 
+### 2026-11-27: Hand signs never fired in a real session
+- **Seen (session log, 2026-11-26, class, 2–5 faces in view):**
+  - 👌 was recognised 15 times, plus ✌️, L, 🤘 and 🤙, but no action ever ran.
+  - Each recognition lasted only **30–110 ms** (1–3 frames), then dropped for 100–300 ms, then came back.
+  - The pinch that arms cursor mode flickered the same way, though cursor mode did arm once.
+  - Cursor mode worked (clicks, right-click, 5 drags, scroll), with no Accessibility prompt, so the signing fix held. Face check matched steadily (nearest 0.46–0.51 vs threshold 0.83).
+- **Cause:** the sign rules are per-frame and were tuned on synthetic hands, so real hands flicker across them. The hold needed 0.8 s *continuous* and reset after a 0.15 s gap, so it could never complete.
+- **Fix:**
+  - `SignVote` decides by vote over the last 0.5 s. A sign enters at ≥30% of frames and at least twice the runner-up, and stays while ≥15%. HandSigns and the Arbiter share one smoothed value per frame.
+  - Cursor arming rides through dropouts under 0.2 s (`armGrace`).
+- **Next data:** when a held sign drops, the log now says why: `sign raw dropped ok: thumb-index 0.34 palm (OK needs < 0.30) fingers …` or `missing joints […]`. Use it to tune the rules themselves.
+- **Check:** self-tests replay the real pattern. A held sign seen 1 frame in 3 fires once; stray blips (1 in 10) never fire; two alternating signs never fire; a pinch with dropped frames still arms.
+
 ### 2026-11-27: Made the repo public
 - **Before publishing:**
   - Scanned the full history for keys, tokens and private keys: none.

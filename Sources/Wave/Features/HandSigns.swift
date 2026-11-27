@@ -69,6 +69,28 @@ extension Sign {
 }
 
 /// Hold timer, pure so it can be tested without a camera. Feed it one sign (or nil) per frame.
+/// Real hands flicker across the sign rules: the first test showed 👌 recognised for only 1–3 frames at a time.
+/// So a sign counts as held while it fills enough of the last half second, with hysteresis so it doesn't chatter.
+struct SignVote {
+    // shortcut: from one session's log (raw 👌 on ~30% of frames while held); tune with more logs.
+    static let window = 0.5, enter = 0.3, stay = 0.15
+
+    private var recent: [(t: Double, s: Sign?)] = []
+    private(set) var current: Sign?
+
+    mutating func step(t: Double, raw: Sign?) -> Sign? {
+        recent.append((t, raw))
+        recent.removeAll { $0.t < t - Self.window }
+        func share(_ s: Sign) -> Double { Double(recent.filter { $0.s == s }.count) / Double(recent.count) }
+        let ranked = Sign.allCases.sorted { share($0) > share($1) }
+        let best = ranked[0], runnerUp = share(ranked[1])
+        if let c = current, share(c) >= Self.stay, share(c) >= share(best) { return c }
+        // A sign has to clearly beat the others: tracking torn between two signs is not a sign.
+        current = share(best) >= Self.enter && share(best) >= 2 * runnerUp ? best : nil
+        return current
+    }
+}
+
 struct Hold {
     // shortcut: 0.8 s hold, 0.5 s re-arm, 0.15 s dropout grace are guesses; tune on hardware.
     static let hold = 0.8, rearm = 0.5, grace = 0.15
@@ -105,6 +127,22 @@ final class HandSigns {
     }
 
     @ObservationIgnored private var hold = Hold()
+    @ObservationIgnored private var vote = SignVote()
+    @ObservationIgnored private var voted: (t: Double, s: Sign?) = (-1, nil)
+    @ObservationIgnored private var lastRaw: Sign?
+
+    /// The sign in this frame, smoothed. The Arbiter and the hold both read this, and it steps once per frame however many ask.
+    func currentSign(_ f: HandFrame) -> Sign? {
+        guard voted.t != f.time else { return voted.s }
+        let h = f.hands.first
+        let raw = h.flatMap(sign)
+        if raw != lastRaw { // why it dropped is what the next tuning pass needs
+            if let h, raw == nil, lastRaw != nil { SessionLog.log("sign raw dropped \(lastRaw!.rawValue): \(signDebug(h))") }
+            lastRaw = raw
+        }
+        voted = (f.time, vote.step(t: f.time, raw: raw))
+        return voted.s
+    }
     @ObservationIgnored private var listener: UUID?
     @ObservationIgnored private var ringShown = false
     @ObservationIgnored private var askedAccessibility = false
@@ -128,7 +166,7 @@ final class HandSigns {
         // and a feature mid-stroke keeps it (then s is nil and the hold lapses after its grace). The master switch lands here too.
         let lane = Arbiter.lane(f)
         let off = !enabled || lane == nil || lane == .cursor
-        let s = lane == .sign ? f.hands.first.flatMap(sign) : nil
+        let s = lane == .sign ? currentSign(f) : nil
         if held != s {
             held = s
             SessionLog.log("sign \(s.map { "\($0.emoji) \($0.rawValue)" } ?? "none")")
@@ -247,6 +285,19 @@ extension HandSigns {
         // Storage round trip and defaults.
         check("action storage", (SignAction.basic + [.shortcut("A b")]).allSatisfy { SignAction(stored: $0.stored) == $0 })
         check("defaults", Sign.thumbsUp.defaultAction == .playPause && Sign.l.defaultAction == .paste && Sign.ok.defaultAction == .copy)
+
+        // Smoothing, replaying the first real test: a held 👌 was seen on only ~1 frame in 3 at 30 fps.
+        func voted(_ pattern: [Sign?], secs: Double) -> [Sign] {
+            var v = SignVote(), h = Hold(), fired: [Sign] = []
+            for i in 0..<Int(secs * 30) {
+                let t = Double(i) / 30
+                if let f = h.step(t: t, sign: v.step(t: t, raw: pattern[i % pattern.count])).fire { fired.append(f) }
+            }
+            return fired
+        }
+        check("flickering held sign (1 frame in 3) still fires once", voted([.ok, nil, nil], secs: 2) == [.ok])
+        check("stray blips (1 frame in 10) never fire", voted([.ok] + Array(repeating: nil, count: 9), secs: 3).isEmpty)
+        check("two signs alternating never fire", voted([.ok, .rock], secs: 3).isEmpty)
         return ok
     }
 

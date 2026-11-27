@@ -19,6 +19,7 @@ struct CursorCore {
     // shortcut: 0.25 close / 0.40 open hysteresis guessed from Vision jitter, tune on hardware if taps miss or misfire.
     static let closeAt: CGFloat = 0.25, openAt: CGFloat = 0.40
     static let armHold = 0.6
+    static let armGrace = 0.2 // shortcut: dropout tolerance while arming, from one test log; tune with more logs
     // shortcut: knuckle may drift 4% of the frame while arming, raise if arming keeps restarting.
     static let armSteady: CGFloat = 0.04
     static let tapMin = 0.05, tapMax = 0.3 // shorter than tapMin is a one-frame flicker, not a tap
@@ -44,6 +45,7 @@ struct CursorCore {
     private(set) var active = false
     private var waitRelease = false // a pinch already closed (arming, exit, resume) must open before it does anything
     private var armStart: (t: TimeInterval, at: CGPoint)?
+    private var armSeen: TimeInterval?
     private var exitStart: TimeInterval?
     private var lostSince: TimeInterval?
     private var paused = false
@@ -79,12 +81,18 @@ struct CursorCore {
     // MARK: idle: only arming can happen
 
     private mutating func stepIdle(_ t: TimeInterval, _ hands: [Hand]) -> [CursorEvent] {
-        guard let g = hands.first.flatMap(Geo.init) else { return cancelArm() }
+        // Tracking drops a held pinch for a frame or two (seen in the first test log); don't restart the hold for that.
+        func dropout() -> [CursorEvent] {
+            if armStart != nil, let seen = armSeen, t - seen < Self.armGrace { return [] }
+            return cancelArm()
+        }
+        guard let g = hands.first.flatMap(Geo.init) else { return dropout() }
         // Two pinching hands is the exit pose, never an arm.
         if hands.count > 1, let g2 = Geo(hands[1]), g2.index < Self.openAt { return cancelArm() }
         if waitRelease { waitRelease = g.index <= Self.openAt; return cancelArm() }
         // 👌 (thumb on index, other three fingers up) is a hand sign, not an arm. Only arming is gated: once active, taps are distance-only.
-        guard !g.threeUp, g.index < (armStart == nil ? Self.closeAt : Self.openAt) else { return cancelArm() }
+        guard !g.threeUp, g.index < (armStart == nil ? Self.closeAt : Self.openAt) else { return dropout() }
+        armSeen = t
         if let s = armStart, hypot(g.knuckle.x - s.at.x, g.knuckle.y - s.at.y) <= Self.armSteady {
             let p = (t - s.t) / Self.armHold
             guard p >= 1 else { return [.progress(p)] }
@@ -362,6 +370,15 @@ struct CursorCore {
         check("ok pose never arms", !feed([testHand(.ok)], 1.5).contains(.enter) && !c.active)
         _ = feed([open], 0.2)
         check("arbiter sees pinch, not ok", armPose(pinch) && !armPose(testHand(.ok)) && !armPose(open))
+
+        // Real tracking drops a held pinch for single frames (first test log); arming must ride through that.
+        var flicker = CursorCore(), ft = 0.0, flickerArmed = false
+        for i in 0..<30 {
+            ft += 1.0 / 30
+            let frame: [Hand] = i % 4 == 3 ? (i % 8 == 3 ? [] : [open]) : [pinch]
+            if flicker.step(t: ft, hands: frame).contains(.enter) { flickerArmed = true }
+        }
+        check("pinch with dropped frames still arms", flickerArmed)
 
         e = feed([pinch], 0.5)
         check("not armed at 0.5s", !e.contains(.enter) && e.contains(.progress(0)))
